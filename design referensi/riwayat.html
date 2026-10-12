@@ -1,0 +1,1076 @@
+<!doctype html>
+<html lang="id">
+    <head>
+        <meta charset="utf-8" />
+        <meta
+            content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+            name="viewport"
+        />
+        <meta content="mobile_tab" name="shell-type" />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+            rel="stylesheet"
+        />
+        <link href="https://fonts.googleapis.com" rel="preconnect" />
+        <link
+            crossorigin=""
+            href="https://fonts.gstatic.com"
+            rel="preconnect"
+        />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;family=Poppins:wght@600&amp;display=swap"
+            rel="stylesheet"
+        />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+            rel="stylesheet"
+        />
+        <style>
+            @layer base {
+                html,
+                body {
+                    width: 100%;
+                    margin: 0;
+                    padding: 0;
+                }
+                body {
+                    overscroll-behavior: none;
+                }
+                .pb-safe {
+                    padding-bottom: env(safe-area-inset-bottom, 0px);
+                }
+                .pt-safe {
+                    padding-top: env(safe-area-inset-top, 0px);
+                }
+                main > :first-child {
+                    margin-top: 0 !important;
+                }
+                main > :last-child {
+                    margin-bottom: 0 !important;
+                }
+            }
+            ::-webkit-scrollbar {
+                display: none;
+            }
+        </style>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script id="tailwind-config">
+            tailwind.config = {
+                darkMode: "class",
+                theme: {
+                    extend: {
+                        colors: {
+                            "on-primary-container": "#fff1f0",
+                            "on-tertiary": "#ffffff",
+                            "surface-container-highest": "#e3e2e2",
+                            "on-tertiary-container": "#daffd5",
+                            "surface-container-low": "#f5f3f3",
+                            "surface-container-high": "#e9e8e7",
+                            "inverse-on-surface": "#f2f0f0",
+                            "tertiary-fixed": "#83fc8e",
+                            "surface-container": "#efeded",
+                            error: "#ba1a1a",
+                            secondary: "#5e5e5e",
+                            "error-container": "#ffdad6",
+                            "surface-bright": "#fbf9f8",
+                            warning: "#f59e0b",
+                            "surface-tint": "#bf0030",
+                            outline: "#eaeaea",
+                            "on-surface-variant": "#5c3f3f",
+                            background: "#fbf9f8",
+                            "primary-container": "#fff1f0",
+                            "on-secondary": "#ffffff",
+                            "on-primary-fixed": "#40000a",
+                            "tertiary-container": "#00822d",
+                            "secondary-fixed-dim": "#c8c6c6",
+                            "inverse-primary": "#ffb3b3",
+                            "surface-container-lowest": "#ffffff",
+                            "on-secondary-fixed-variant": "#474747",
+                            "on-tertiary-fixed": "#002106",
+                            "on-background": "#1b1c1c",
+                            surface: "#fbf9f8",
+                            "tertiary-fixed-dim": "#66df75",
+                            "primary-fixed": "#ffdad9",
+                            "on-error": "#ffffff",
+                            tertiary: "#006622",
+                            "surface-dim": "#dbd9d9",
+                            "outline-variant": "#e6bdbc",
+                            "primary-fixed-dim": "#ffb3b3",
+                            "on-surface": "#1b1c1c",
+                            "on-primary-fixed-variant": "#920022",
+                            "on-secondary-container": "#646464",
+                            "on-secondary-fixed": "#1b1c1c",
+                            "inverse-surface": "#303030",
+                            "on-primary": "#ffffff",
+                            "on-tertiary-fixed-variant": "#00531a",
+                            primary: "#b1002c",
+                            "on-error-container": "#93000a",
+                            "secondary-fixed": "#e4e2e2",
+                            "surface-variant": "#e3e2e2",
+                            "secondary-container": "#e4e2e2",
+                        },
+                        borderRadius: {
+                            DEFAULT: "0.25rem",
+                            lg: "0.5rem",
+                            xl: "0.75rem",
+                            full: "9999px",
+                        },
+                        spacing: {
+                            "space-lg": "1.5rem",
+                            "space-sm": "0.5rem",
+                            "space-xs": "0.25rem",
+                            gutter: "1rem",
+                            margin: "1rem",
+                            "space-md": "1rem",
+                            base: "8px",
+                            "space-xl": "2rem",
+                            "margin-mobile": "16px",
+                        },
+                        fontFamily: {
+                            "label-sm": ["Inter"],
+                            "label-md": ["Inter"],
+                            "body-md": ["Inter"],
+                            "h1-mobile": ["Poppins"],
+                            "title-md": ["Inter"],
+                            "label-lg": ["Inter"],
+                            "headline-lg": ["Plus Jakarta Sans"],
+                            "headline-md-mobile": ["Plus Jakarta Sans"],
+                            "headline-md": ["Plus Jakarta Sans"],
+                            "body-lg": ["Inter"],
+                            "headline-lg-mobile": ["Plus Jakarta Sans"],
+                            "body-sm": ["Inter"],
+                            "headline-sm": ["Plus Jakarta Sans"],
+                            "h2-mobile": ["Poppins"],
+                            label: ["Inter"],
+                            body: ["Inter"],
+                        },
+                        fontSize: {
+                            "label-sm": [
+                                "11px",
+                                { lineHeight: "14px", fontWeight: "600" },
+                            ],
+                            "label-md": [
+                                "13px",
+                                { lineHeight: "16px", fontWeight: "600" },
+                            ],
+                            "body-md": [
+                                "15px",
+                                { lineHeight: "22px", fontWeight: "400" },
+                            ],
+                            "h1-mobile": ["24px", { fontWeight: "600" }],
+                            "title-md": [
+                                "16px",
+                                { lineHeight: "22px", fontWeight: "600" },
+                            ],
+                            "label-lg": [
+                                "14px",
+                                { lineHeight: "18px", fontWeight: "600" },
+                            ],
+                            "headline-lg": [
+                                "28px",
+                                { lineHeight: "36px", fontWeight: "600" },
+                            ],
+                            "headline-md-mobile": [
+                                "20px",
+                                { lineHeight: "26px", fontWeight: "600" },
+                            ],
+                            "headline-md": [
+                                "22px",
+                                { lineHeight: "28px", fontWeight: "600" },
+                            ],
+                            "body-lg": [
+                                "16px",
+                                { lineHeight: "24px", fontWeight: "400" },
+                            ],
+                            "headline-lg-mobile": [
+                                "24px",
+                                { lineHeight: "32px", fontWeight: "600" },
+                            ],
+                            "body-sm": [
+                                "14px",
+                                { lineHeight: "20px", fontWeight: "400" },
+                            ],
+                            "headline-sm": [
+                                "18px",
+                                { lineHeight: "24px", fontWeight: "600" },
+                            ],
+                            "h2-mobile": ["20px", { fontWeight: "600" }],
+                            label: ["13px", { fontWeight: "600" }],
+                            body: ["15px", { fontWeight: "400" }],
+                        },
+                    },
+                },
+            };
+        </script>
+    </head>
+    <body
+        class="bg-surface font-body text-body-md text-on-surface min-h-screen flex flex-col"
+    >
+        <header
+            class="fixed top-0 w-full z-50 bg-surface/90 backdrop-blur-xl pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.04)]"
+        >
+            <div
+                class="h-16 px-margin flex items-center justify-between gap-space-sm"
+            >
+                <div class="flex items-center gap-0.5 shrink-0 min-h-[44px]">
+                    <span
+                        class="font-headline-sm text-headline-sm text-on-surface tracking-tight"
+                        >Technolife</span
+                    ><span
+                        class="text-primary text-headline-sm font-headline-sm leading-none"
+                        >•</span
+                    >
+                </div>
+                <button
+                    class="flex items-center justify-center gap-space-xs h-9 px-space-md bg-surface-container rounded-full text-on-surface hover:bg-surface-container-high transition-colors max-w-[170px] shrink"
+                >
+                    <span
+                        class="material-symbols-outlined text-[16px] text-primary shrink-0"
+                        >location_on</span
+                    ><span class="font-label-sm text-label-sm truncate"
+                        >Gudang Utama</span
+                    ><span
+                        class="material-symbols-outlined text-[16px] text-secondary shrink-0"
+                        >arrow_drop_down</span
+                    >
+                </button>
+                <div class="flex items-center justify-end shrink-0">
+                    <button
+                        aria-label="Profil Pengguna"
+                        class="relative w-11 h-11 flex items-center justify-center"
+                    >
+                        <div
+                            class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"
+                        >
+                            <span
+                                class="material-symbols-outlined text-on-primary text-[18px]"
+                                >person</span
+                            >
+                        </div>
+                        <span
+                            class="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-primary ring-2 ring-surface"
+                        ></span>
+                    </button>
+                </div>
+            </div>
+        </header>
+        <main class="flex-1 w-full bg-surface pt-16 pb-24">
+            <div class="flex flex-col w-full">
+                <!-- Top Header Section & Date Quick Toggle -->
+                <section class="px-margin pt-space-sm pb-space-sm bg-surface">
+                    <div class="flex items-start justify-between gap-space-sm">
+                        <div class="min-w-0">
+                            <h1
+                                class="font-h2-mobile text-h2-mobile text-on-surface tracking-tight"
+                            >
+                                Riwayat Mutasi Stok
+                            </h1>
+                            <div class="flex items-center gap-1.5 mt-0.5">
+                                <span
+                                    class="w-2 h-2 rounded-full bg-tertiary"
+                                ></span>
+                                <p
+                                    class="font-label-sm text-label-sm text-secondary"
+                                >
+                                    38 Transaksi Tercatat • Real-time Sync
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            aria-label="Pilih Rentang Tanggal"
+                            class="flex items-center gap-2 h-11 px-3.5 bg-surface-container-lowest rounded-xl text-on-surface shadow-sm hover:bg-surface-container-low transition-all shrink-0 active:scale-95"
+                        >
+                            <div
+                                class="w-7 h-7 rounded-lg bg-primary-container flex items-center justify-center shrink-0"
+                            >
+                                <span
+                                    class="material-symbols-outlined text-[16px] text-primary"
+                                    >calendar_month</span
+                                >
+                            </div>
+                            <div class="flex flex-col text-left">
+                                <span
+                                    class="font-label-sm text-[10px] text-secondary uppercase leading-none tracking-wider"
+                                    >Filter Tanggal</span
+                                ><span
+                                    class="font-label-md text-label-sm text-on-surface font-semibold leading-tight"
+                                    >7 Okt 2026</span
+                                >
+                            </div>
+                            <span
+                                class="material-symbols-outlined text-[18px] text-secondary shrink-0"
+                                >tune</span
+                            >
+                        </button>
+                    </div>
+                    <!-- Search Box and Quick Filter Icon -->
+                    <div class="mt-space-md flex items-center gap-space-xs">
+                        <div class="relative flex-1">
+                            <span
+                                class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-secondary text-[20px] pointer-events-none"
+                                >search</span
+                            >
+                            <input
+                                class="w-full h-11 pl-10 pr-4 bg-surface-container-low rounded-xl font-body-sm text-body-sm text-on-surface placeholder:text-secondary focus:outline-none focus:bg-surface-container transition-all"
+                                id="audit-search"
+                                placeholder="Cari ID transaksi, nama barang, atau petugas..."
+                                type="text"
+                            />
+                        </div>
+                        <button
+                            aria-label="Opsi Filter Lanjutan"
+                            class="w-11 h-11 rounded-xl bg-surface-container flex items-center justify-center text-on-surface hover:bg-surface-container-high transition-colors shrink-0"
+                        >
+                            <span class="material-symbols-outlined text-[20px]"
+                                >tune</span
+                            >
+                        </button>
+                    </div>
+                    <!-- Category Filter Segment (Pill Chips) -->
+                    <div
+                        class="mt-space-sm flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 pt-space-xs"
+                    >
+                        <span
+                            class="text-[11px] font-label-sm text-secondary uppercase tracking-wider shrink-0 flex items-center gap-1"
+                            ><span
+                                class="material-symbols-outlined text-[14px] text-primary"
+                                >date_range</span
+                            >Periode:</span
+                        ><button
+                            class="shrink-0 px-2.5 py-1 rounded-lg font-label-sm text-[11px] bg-primary text-on-primary font-semibold shadow-sm flex items-center gap-1"
+                        >
+                            <span class="">Hari Ini (7 Okt)</span></button
+                        ><button
+                            class="shrink-0 px-2.5 py-1 rounded-lg font-label-sm text-[11px] bg-surface-container-lowest text-secondary hover:text-on-surface hover:bg-surface-container transition-colors shadow-[0_1px_4px_rgba(0,0,0,0.03)]"
+                        >
+                            <span class="">7 Hari Terakhir</span></button
+                        ><button
+                            class="shrink-0 px-2.5 py-1 rounded-lg font-label-sm text-[11px] bg-surface-container-lowest text-secondary hover:text-on-surface hover:bg-surface-container transition-colors shadow-[0_1px_4px_rgba(0,0,0,0.03)]"
+                        >
+                            <span class="">30 Hari</span></button
+                        ><button
+                            class="shrink-0 px-2.5 py-1 rounded-lg font-label-sm text-[11px] bg-surface-container-lowest text-secondary hover:text-on-surface hover:bg-surface-container transition-colors shadow-[0_1px_4px_rgba(0,0,0,0.03)] flex items-center gap-0.5"
+                        >
+                            <span class="material-symbols-outlined text-[13px]"
+                                >calendar_today</span
+                            ><span class="">Pilih Rentang</span>
+                        </button>
+                    </div>
+                    <div
+                        class="mt-space-md flex items-center gap-2 overflow-x-auto no-scrollbar pb-1"
+                    >
+                        <button
+                            class="filter-chip active shrink-0 px-3.5 py-1.5 rounded-full font-label-sm text-label-sm bg-primary text-on-primary shadow-sm"
+                            data-filter="all"
+                        >
+                            Semua Mutasi (38)
+                        </button>
+                        <button
+                            class="filter-chip shrink-0 px-3.5 py-1.5 rounded-full font-label-sm text-label-sm bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors"
+                            data-filter="in"
+                        >
+                            Barang Masuk (18)
+                        </button>
+                        <button
+                            class="filter-chip shrink-0 px-3.5 py-1.5 rounded-full font-label-sm text-label-sm bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors"
+                            data-filter="out"
+                        >
+                            Barang Keluar (14)
+                        </button>
+                        <button
+                            class="filter-chip shrink-0 px-3.5 py-1.5 rounded-full font-label-sm text-label-sm bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors"
+                            data-filter="adj"
+                        >
+                            Opname / Selisih (6)
+                        </button>
+                    </div>
+                </section>
+                <!-- Metric KPI Overview Cards -->
+                <section class="px-margin py-space-sm">
+                    <div class="grid grid-cols-3 gap-2">
+                        <!-- Total Masuk -->
+                        <div
+                            class="bg-surface-container-lowest p-2.5 rounded-xl shadow-[0_2px_4px_rgba(27,28,28,0.04)] flex flex-col justify-between"
+                        >
+                            <div class="flex items-center justify-between">
+                                <span
+                                    class="font-label-sm text-[11px] leading-tight text-secondary"
+                                    >Masuk</span
+                                >
+                                <span
+                                    class="material-symbols-outlined text-tertiary text-[14px]"
+                                    >arrow_downward</span
+                                >
+                            </div>
+                            <div class="mt-1.5">
+                                <p
+                                    class="font-mono text-label-md text-tertiary font-semibold tracking-tight"
+                                >
+                                    +182 kg
+                                </p>
+                                <span
+                                    class="font-label-sm text-[10px] text-secondary"
+                                    >18 transaksi</span
+                                >
+                            </div>
+                        </div>
+                        <!-- Total Keluar -->
+                        <div
+                            class="bg-surface-container-lowest p-2.5 rounded-xl shadow-[0_2px_4px_rgba(27,28,28,0.04)] flex flex-col justify-between"
+                        >
+                            <div class="flex items-center justify-between">
+                                <span
+                                    class="font-label-sm text-[11px] leading-tight text-secondary"
+                                    >Keluar</span
+                                >
+                                <span
+                                    class="material-symbols-outlined text-primary text-[14px]"
+                                    >arrow_upward</span
+                                >
+                            </div>
+                            <div class="mt-1.5">
+                                <p
+                                    class="font-mono text-label-md text-primary font-semibold tracking-tight"
+                                >
+                                    -94 kg
+                                </p>
+                                <span
+                                    class="font-label-sm text-[10px] text-secondary"
+                                    >14 transaksi</span
+                                >
+                            </div>
+                        </div>
+                        <!-- Opname / Selisih -->
+                        <div
+                            class="bg-surface-container-lowest p-2.5 rounded-xl shadow-[0_2px_4px_rgba(27,28,28,0.04)] flex flex-col justify-between"
+                        >
+                            <div class="flex items-center justify-between">
+                                <span
+                                    class="font-label-sm text-[11px] leading-tight text-secondary"
+                                    >Selisih</span
+                                >
+                                <span
+                                    class="material-symbols-outlined text-secondary text-[14px]"
+                                    >balance</span
+                                >
+                            </div>
+                            <div class="mt-1.5">
+                                <p
+                                    class="font-mono text-label-md text-on-surface font-semibold tracking-tight"
+                                >
+                                    -3 item
+                                </p>
+                                <span
+                                    class="font-label-sm text-[10px] text-secondary"
+                                    >6 audit</span
+                                >
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                <!-- Audit Log List (Grouped by Date) -->
+                <section
+                    class="px-margin pt-space-xs flex flex-col gap-space-md"
+                >
+                    <!-- Timeline Group 1: Hari Ini -->
+                    <div class="flex flex-col gap-2.5">
+                        <!-- Section Header -->
+                        <div class="flex items-center justify-between py-1">
+                            <div class="flex items-center gap-2">
+                                <span
+                                    class="w-1.5 h-3.5 bg-primary rounded-full"
+                                ></span>
+                                <span
+                                    class="font-label-md text-label-md tracking-wider text-on-surface uppercase"
+                                    >HARI INI — 7 OKTOBER 2026</span
+                                >
+                            </div>
+                            <span
+                                class="bg-surface-container-high px-2 py-0.5 rounded-md font-label-sm text-[10px] text-secondary"
+                                >24 Mutasi</span
+                            >
+                        </div>
+                        <!-- Card 1: Wagyu Beef (Stock In) -->
+                        <div
+                            class="transaction-item in bg-surface-container-lowest p-3.5 rounded-xl shadow-[0_2px_4px_rgba(27,28,28,0.04)] active:scale-[0.99] transition-transform"
+                        >
+                            <div
+                                class="flex items-center justify-between pb-2 border-b border-surface-container"
+                            >
+                                <div class="flex items-center gap-1.5">
+                                    <span
+                                        class="material-symbols-outlined text-secondary text-[14px]"
+                                        >tag</span
+                                    >
+                                    <span
+                                        class="font-mono font-semibold text-label-sm text-secondary tracking-tight"
+                                        >TRX-IN-20261007-001</span
+                                    >
+                                </div>
+                                <span
+                                    class="font-mono text-label-sm text-secondary"
+                                    >14:20 WIB</span
+                                >
+                            </div>
+                            <div
+                                class="flex items-center justify-between pt-2.5 pb-2"
+                            >
+                                <div class="min-w-0 pr-2">
+                                    <div
+                                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-on-tertiary-container/30 text-tertiary mb-1"
+                                    >
+                                        <span
+                                            class="w-1.5 h-1.5 rounded-full bg-tertiary"
+                                        ></span>
+                                        <span class="font-label-sm text-[11px]"
+                                            >Masuk</span
+                                        >
+                                    </div>
+                                    <h2
+                                        class="font-h2-mobile text-body-md text-on-surface truncate"
+                                    >
+                                        Daging Sapi Wagyu MB5
+                                    </h2>
+                                    <p
+                                        class="font-mono text-label-sm text-secondary truncate mt-0.5"
+                                    >
+                                        Batch #B92 • Chiller A-02
+                                    </p>
+                                </div>
+                                <div class="text-right shrink-0">
+                                    <span
+                                        class="font-mono text-headline-sm text-tertiary font-bold tracking-tight"
+                                        >+50 kg</span
+                                    >
+                                </div>
+                            </div>
+                            <div
+                                class="flex items-center justify-between pt-2 border-t border-surface-container text-label-sm text-secondary"
+                            >
+                                <div
+                                    class="flex items-center gap-1 truncate max-w-[48%]"
+                                >
+                                    <span
+                                        class="material-symbols-outlined text-[13px]"
+                                        >person</span
+                                    >
+                                    <span class="truncate"
+                                        >Budi (Storeman)</span
+                                    >
+                                </div>
+                                <div
+                                    class="flex items-center gap-1 truncate max-w-[48%] justify-end"
+                                >
+                                    <span
+                                        class="material-symbols-outlined text-[13px]"
+                                        >local_shipping</span
+                                    >
+                                    <span class="truncate">WRT Meat</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Card 2: Susu UHT (Stock Out) -->
+                        <div
+                            class="transaction-item out bg-surface-container-lowest p-3.5 rounded-xl shadow-[0_2px_4px_rgba(27,28,28,0.04)] active:scale-[0.99] transition-transform"
+                        >
+                            <div
+                                class="flex items-center justify-between pb-2 border-b border-surface-container"
+                            >
+                                <div class="flex items-center gap-1.5">
+                                    <span
+                                        class="material-symbols-outlined text-secondary text-[14px]"
+                                        >tag</span
+                                    >
+                                    <span
+                                        class="font-mono font-semibold text-label-sm text-secondary tracking-tight"
+                                        >TRX-OUT-20261007-004</span
+                                    >
+                                </div>
+                                <span
+                                    class="font-mono text-label-sm text-secondary"
+                                    >11:05 WIB</span
+                                >
+                            </div>
+                            <div
+                                class="flex items-center justify-between pt-2.5 pb-2"
+                            >
+                                <div class="min-w-0 pr-2">
+                                    <div
+                                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary-container text-primary mb-1"
+                                    >
+                                        <span
+                                            class="w-1.5 h-1.5 rounded-full bg-primary"
+                                        ></span>
+                                        <span class="font-label-sm text-[11px]"
+                                            >Keluar</span
+                                        >
+                                    </div>
+                                    <h2
+                                        class="font-h2-mobile text-body-md text-on-surface truncate"
+                                    >
+                                        Susu UHT Full Cream 1L
+                                    </h2>
+                                    <p
+                                        class="font-mono text-label-sm text-secondary truncate mt-0.5"
+                                    >
+                                        Batch #SFC-771 • Rak Chiller B
+                                    </p>
+                                </div>
+                                <div class="text-right shrink-0">
+                                    <span
+                                        class="font-mono text-headline-sm text-primary font-bold tracking-tight"
+                                        >-12 Kotak</span
+                                    >
+                                </div>
+                            </div>
+                            <div
+                                class="flex items-center justify-between pt-2 border-t border-surface-container text-label-sm text-secondary"
+                            >
+                                <div
+                                    class="flex items-center gap-1 truncate max-w-[48%]"
+                                >
+                                    <span
+                                        class="material-symbols-outlined text-[13px]"
+                                        >person</span
+                                    >
+                                    <span class="truncate"
+                                        >Budi (Storeman)</span
+                                    >
+                                </div>
+                                <div
+                                    class="flex items-center gap-1 truncate max-w-[48%] justify-end"
+                                >
+                                    <span
+                                        class="material-symbols-outlined text-[13px]"
+                                        >restaurant</span
+                                    >
+                                    <span class="truncate"
+                                        >Cafe &amp; Kitchen</span
+                                    >
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Card 3: Minyak Goreng (Opname / Selisih) -->
+                        <div
+                            class="transaction-item adj bg-surface-container-lowest p-3.5 rounded-xl shadow-[0_2px_4px_rgba(27,28,28,0.04)] active:scale-[0.99] transition-transform"
+                        >
+                            <div
+                                class="flex items-center justify-between pb-2 border-b border-surface-container"
+                            >
+                                <div class="flex items-center gap-1.5">
+                                    <span
+                                        class="material-symbols-outlined text-secondary text-[14px]"
+                                        >tag</span
+                                    >
+                                    <span
+                                        class="font-mono font-semibold text-label-sm text-secondary tracking-tight"
+                                        >TRX-ADJ-20261007-002</span
+                                    >
+                                </div>
+                                <span
+                                    class="font-mono text-label-sm text-secondary"
+                                    >09:15 WIB</span
+                                >
+                            </div>
+                            <div
+                                class="flex items-center justify-between pt-2.5 pb-2"
+                            >
+                                <div class="min-w-0 pr-2">
+                                    <div
+                                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface mb-1"
+                                    >
+                                        <span
+                                            class="w-1.5 h-1.5 rounded-full bg-secondary"
+                                        ></span>
+                                        <span class="font-label-sm text-[11px]"
+                                            >Opname</span
+                                        >
+                                    </div>
+                                    <h2
+                                        class="font-h2-mobile text-body-md text-on-surface truncate"
+                                    >
+                                        Minyak Goreng Sawit 18L
+                                    </h2>
+                                    <p
+                                        class="font-mono text-label-sm text-secondary truncate mt-0.5"
+                                    >
+                                        Batch #MGS-230 • Palet D-03
+                                    </p>
+                                </div>
+                                <div class="text-right shrink-0">
+                                    <span
+                                        class="font-mono text-headline-sm text-on-surface font-bold tracking-tight"
+                                        >-1 Jerigen</span
+                                    >
+                                </div>
+                            </div>
+                            <div
+                                class="flex items-center justify-between pt-2 border-t border-surface-container text-label-sm text-secondary"
+                            >
+                                <div
+                                    class="flex items-center gap-1 truncate max-w-[48%]"
+                                >
+                                    <span
+                                        class="material-symbols-outlined text-[13px]"
+                                        >verified_user</span
+                                    >
+                                    <span class="truncate">Hendra (SPV)</span>
+                                </div>
+                                <div
+                                    class="flex items-center gap-1 truncate max-w-[48%] justify-end"
+                                >
+                                    <span
+                                        class="material-symbols-outlined text-[13px]"
+                                        >report</span
+                                    >
+                                    <span class="truncate text-error"
+                                        >Bocor Saat Audit</span
+                                    >
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Card 4: Beras Premium (Stock In) -->
+                        <div
+                            class="transaction-item in bg-surface-container-lowest p-3.5 rounded-xl shadow-[0_2px_4px_rgba(27,28,28,0.04)] active:scale-[0.99] transition-transform"
+                        >
+                            <div
+                                class="flex items-center justify-between pb-2 border-b border-surface-container"
+                            >
+                                <div class="flex items-center gap-1.5">
+                                    <span
+                                        class="material-symbols-outlined text-secondary text-[14px]"
+                                        >tag</span
+                                    >
+                                    <span
+                                        class="font-mono font-semibold text-label-sm text-secondary tracking-tight"
+                                        >TRX-IN-20261007-002</span
+                                    >
+                                </div>
+                                <span
+                                    class="font-mono text-label-sm text-secondary"
+                                    >08:30 WIB</span
+                                >
+                            </div>
+                            <div
+                                class="flex items-center justify-between pt-2.5 pb-2"
+                            >
+                                <div class="min-w-0 pr-2">
+                                    <div
+                                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-on-tertiary-container/30 text-tertiary mb-1"
+                                    >
+                                        <span
+                                            class="w-1.5 h-1.5 rounded-full bg-tertiary"
+                                        ></span>
+                                        <span class="font-label-sm text-[11px]"
+                                            >Masuk</span
+                                        >
+                                    </div>
+                                    <h2
+                                        class="font-h2-mobile text-body-md text-on-surface truncate"
+                                    >
+                                        Beras Premium Pulen 5kg
+                                    </h2>
+                                    <p
+                                        class="font-mono text-label-sm text-secondary truncate mt-0.5"
+                                    >
+                                        Batch #BR-900 • Gudang Kering A-01
+                                    </p>
+                                </div>
+                                <div class="text-right shrink-0">
+                                    <span
+                                        class="font-mono text-headline-sm text-tertiary font-bold tracking-tight"
+                                        >+20 Karung</span
+                                    >
+                                </div>
+                            </div>
+                            <div
+                                class="flex items-center justify-between pt-2 border-t border-surface-container text-label-sm text-secondary"
+                            >
+                                <div
+                                    class="flex items-center gap-1 truncate max-w-[48%]"
+                                >
+                                    <span
+                                        class="material-symbols-outlined text-[13px]"
+                                        >person</span
+                                    >
+                                    <span class="truncate"
+                                        >Budi (Storeman)</span
+                                    >
+                                </div>
+                                <div
+                                    class="flex items-center gap-1 truncate max-w-[48%] justify-end"
+                                >
+                                    <span
+                                        class="material-symbols-outlined text-[13px]"
+                                        >local_shipping</span
+                                    >
+                                    <span class="truncate">Beras Makmur</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Timeline Group 2: Kemarin -->
+                    <div class="flex flex-col gap-2.5 mt-space-xs">
+                        <!-- Section Header -->
+                        <div class="flex items-center justify-between py-1">
+                            <div class="flex items-center gap-2">
+                                <span
+                                    class="w-1.5 h-3.5 bg-secondary rounded-full"
+                                ></span>
+                                <span
+                                    class="font-label-md text-label-md tracking-wider text-secondary uppercase"
+                                    >KEMARIN — 6 OKTOBER 2026</span
+                                >
+                            </div>
+                            <span
+                                class="bg-surface-container-high px-2 py-0.5 rounded-md font-label-sm text-[10px] text-secondary"
+                                >14 Mutasi</span
+                            >
+                        </div>
+                        <!-- Card 5: Tomat Merah (Stock Out) -->
+                        <div
+                            class="transaction-item out bg-surface-container-lowest p-3.5 rounded-xl shadow-[0_2px_4px_rgba(27,28,28,0.04)] active:scale-[0.99] transition-transform"
+                        >
+                            <div
+                                class="flex items-center justify-between pb-2 border-b border-surface-container"
+                            >
+                                <div class="flex items-center gap-1.5">
+                                    <span
+                                        class="material-symbols-outlined text-secondary text-[14px]"
+                                        >tag</span
+                                    >
+                                    <span
+                                        class="font-mono font-semibold text-label-sm text-secondary tracking-tight"
+                                        >TRX-OUT-20261006-011</span
+                                    >
+                                </div>
+                                <span
+                                    class="font-mono text-label-sm text-secondary"
+                                    >16:45 WIB</span
+                                >
+                            </div>
+                            <div
+                                class="flex items-center justify-between pt-2.5 pb-2"
+                            >
+                                <div class="min-w-0 pr-2">
+                                    <div
+                                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary-container text-primary mb-1"
+                                    >
+                                        <span
+                                            class="w-1.5 h-1.5 rounded-full bg-primary"
+                                        ></span>
+                                        <span class="font-label-sm text-[11px]"
+                                            >Keluar</span
+                                        >
+                                    </div>
+                                    <h2
+                                        class="font-h2-mobile text-body-md text-on-surface truncate"
+                                    >
+                                        Tomat Merah Segar
+                                    </h2>
+                                    <p
+                                        class="font-mono text-label-sm text-secondary truncate mt-0.5"
+                                    >
+                                        Batch #TMR-021 • Cool Room D-02
+                                    </p>
+                                </div>
+                                <div class="text-right shrink-0">
+                                    <span
+                                        class="font-mono text-headline-sm text-primary font-bold tracking-tight"
+                                        >-8 kg</span
+                                    >
+                                </div>
+                            </div>
+                            <div
+                                class="flex items-center justify-between pt-2 border-t border-surface-container text-label-sm text-secondary"
+                            >
+                                <div
+                                    class="flex items-center gap-1 truncate max-w-[48%]"
+                                >
+                                    <span
+                                        class="material-symbols-outlined text-[13px]"
+                                        >person</span
+                                    >
+                                    <span class="truncate"
+                                        >Siti (Logistik)</span
+                                    >
+                                </div>
+                                <div
+                                    class="flex items-center gap-1 truncate max-w-[48%] justify-end"
+                                >
+                                    <span
+                                        class="material-symbols-outlined text-[13px]"
+                                        >kitchen</span
+                                    >
+                                    <span class="truncate">Dapur Shift 2</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Download/Export Audit Log Action Button -->
+                    <div class="pt-2 pb-6">
+                        <button
+                            class="w-full h-12 bg-surface-container hover:bg-surface-container-high active:scale-[0.98] rounded-xl flex items-center justify-center gap-2 text-on-surface font-label-lg text-label-lg transition-all shadow-sm"
+                            id="btn-export-log"
+                        >
+                            <span
+                                class="material-symbols-outlined text-primary text-[20px]"
+                                >description</span
+                            >
+                            <span class="">Unduh Laporan Log (.CSV / PDF)</span>
+                        </button>
+                    </div>
+                </section>
+                <!-- Interactive Filter & Search Client-Side Script -->
+                <script>
+                    (function () {
+                        const searchInput =
+                            document.getElementById("audit-search");
+                        const filterChips =
+                            document.querySelectorAll(".filter-chip");
+                        const items =
+                            document.querySelectorAll(".transaction-item");
+                        let currentFilter = "all";
+
+                        function applyFilters() {
+                            const query = searchInput.value
+                                .toLowerCase()
+                                .trim();
+
+                            items.forEach((item) => {
+                                const text = item.innerText.toLowerCase();
+                                const matchesSearch = text.includes(query);
+                                const matchesCategory =
+                                    currentFilter === "all" ||
+                                    item.classList.contains(currentFilter);
+
+                                if (matchesSearch && matchesCategory) {
+                                    item.style.display = "block";
+                                } else {
+                                    item.style.display = "none";
+                                }
+                            });
+                        }
+
+                        filterChips.forEach((chip) => {
+                            chip.addEventListener("click", function () {
+                                filterChips.forEach((c) => {
+                                    c.classList.remove(
+                                        "bg-primary",
+                                        "text-on-primary",
+                                        "shadow-sm",
+                                    );
+                                    c.classList.add(
+                                        "bg-surface-container",
+                                        "text-on-surface",
+                                    );
+                                });
+
+                                this.classList.remove(
+                                    "bg-surface-container",
+                                    "text-on-surface",
+                                );
+                                this.classList.add(
+                                    "bg-primary",
+                                    "text-on-primary",
+                                    "shadow-sm",
+                                );
+
+                                currentFilter =
+                                    this.getAttribute("data-filter");
+                                applyFilters();
+                            });
+                        });
+
+                        if (searchInput) {
+                            searchInput.addEventListener("input", applyFilters);
+                        }
+
+                        const exportBtn =
+                            document.getElementById("btn-export-log");
+                        if (exportBtn) {
+                            exportBtn.addEventListener("click", function () {
+                                const originalText = exportBtn.innerHTML;
+                                exportBtn.innerHTML =
+                                    '<span class="material-symbols-outlined text-[20px] animate-spin">sync</span><span>Menyiapkan Dokumen...</span>';
+                                setTimeout(() => {
+                                    exportBtn.innerHTML =
+                                        '<span class="material-symbols-outlined text-tertiary text-[20px]">check_circle</span><span>Laporan Siap Diunduh</span>';
+                                    setTimeout(() => {
+                                        exportBtn.innerHTML = originalText;
+                                    }, 2000);
+                                }, 900);
+                            });
+                        }
+                    })();
+                </script>
+            </div>
+        </main>
+        <nav
+            class="fixed bottom-0 w-full z-50 pb-safe bg-surface/90 backdrop-blur-xl shadow-[0_-2px_12px_rgba(0,0,0,0.05)]"
+            data-active-classes="text-primary"
+        >
+            <div
+                class="flex justify-around items-center h-16 px-space-xs relative"
+            >
+                <a
+                    class="flex flex-col items-center justify-center flex-1 h-full min-w-[56px] text-secondary hover:text-on-surface transition-colors"
+                    data-path="beranda"
+                    href="#"
+                    ><span class="material-symbols-outlined text-[24px]"
+                        >home</span
+                    ><span class="font-label-sm text-label-sm mt-0.5"
+                        >Beranda</span
+                    ></a
+                ><a
+                    class="flex flex-col items-center justify-center flex-1 h-full min-w-[56px] text-secondary hover:text-on-surface transition-colors"
+                    data-path="data-stok"
+                    href="#"
+                    ><span class="material-symbols-outlined text-[24px]"
+                        >inventory_2</span
+                    ><span class="font-label-sm text-label-sm mt-0.5"
+                        >Data Stok</span
+                    ></a
+                >
+                <div
+                    class="flex flex-col items-center justify-center flex-1 min-w-[56px] h-full relative"
+                >
+                    <a
+                        aria-label="Catat"
+                        class="absolute -top-5 w-12 h-12 rounded-full bg-primary flex items-center justify-center text-on-primary shadow-[0_4px_12px_rgba(177,0,44,0.35)] active:scale-95 transition-transform"
+                        data-path="catat"
+                        href="#"
+                        ><span class="material-symbols-outlined text-[28px]"
+                            >add</span
+                        ></a
+                    ><span
+                        class="font-label-sm text-label-sm text-secondary mt-7"
+                        >Catat</span
+                    >
+                </div>
+                <a
+                    aria-current="page"
+                    class="flex flex-col items-center justify-center flex-1 h-full min-w-[56px] transition-colors relative text-primary"
+                    data-path="riwayat"
+                    href="#"
+                    ><span class="material-symbols-outlined text-[24px]"
+                        >history</span
+                    ><span class="font-label-sm text-label-sm mt-0.5"
+                        >Riwayat</span
+                    ><span
+                        class="w-1 h-1 rounded-full bg-primary mt-0.5"
+                    ></span></a
+                ><a
+                    class="flex flex-col items-center justify-center flex-1 h-full min-w-[56px] text-secondary hover:text-on-surface transition-colors"
+                    data-path="laporan"
+                    href="#"
+                    ><span class="material-symbols-outlined text-[24px]"
+                        >bar_chart</span
+                    ><span class="font-label-sm text-label-sm mt-0.5"
+                        >Laporan</span
+                    ></a
+                >
+            </div>
+        </nav>
+    </body>
+</html>

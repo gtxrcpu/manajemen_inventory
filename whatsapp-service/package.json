@@ -1,0 +1,19 @@
+{
+  "name": "technolife-whatsapp-service",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Private WhatsApp Web adapter for Technolife low-stock alerts",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "postinstall": "node scripts/patch-whatsapp-web.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "qrcode": "^1.5.4",
+    "whatsapp-web.js": "1.34.7"
+  }
+}

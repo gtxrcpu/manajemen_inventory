@@ -1,0 +1,12 @@
+@extends('layouts.app')
+@section('title', $item->name.' - '.$config['label'])
+@section('content')
+<main class="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6"><a href="{{ route('admin.master-data.index',$resource) }}" class="text-sm font-semibold text-primary">← Daftar {{ $config['label'] }}</a>
+    @if(session('status'))<div class="mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-800">{{ session('status') }}</div>@endif
+    <section class="mt-4 rounded-2xl border border-outline bg-white p-5 sm:p-7"><div class="flex flex-wrap justify-between gap-3">@if($resource==='products')<img src="{{ $item->image_path ? asset('storage/'.$item->image_path) : asset('images/product-placeholder.svg') }}" alt="{{ $item->name }}" class="h-32 w-32 rounded-xl object-cover">@endif<div><p class="text-xs font-semibold uppercase tracking-wide text-secondary">{{ $config['label'] }}</p><h1 class="mt-2 font-poppins text-2xl font-semibold">{{ $item->name }}</h1><p class="mt-1 text-sm text-secondary">{{ $item->sku ?? $item->code ?? $item->symbol ?? '' }}</p></div><span class="h-fit rounded-full px-3 py-1 text-xs {{ $item->is_active?'bg-green-50 text-green-700':'bg-gray-100 text-gray-600' }}">{{ $item->is_active?'Aktif':'Nonaktif' }}</span></div>
+        <dl class="mt-6 grid gap-4 sm:grid-cols-2">@foreach($item->getAttributes() as $key=>$value)@if(!in_array($key,['id','created_at','updated_at','deleted_at','is_active']))<div><dt class="text-xs uppercase text-secondary">{{ str_replace('_',' ',$key) }}</dt><dd class="mt-1 text-sm">{{ $value ?: '—' }}</dd></div>@endif @endforeach
+        @if($resource==='products')<div><dt class="text-xs uppercase text-secondary">Kategori</dt><dd class="mt-1 text-sm">{{ $item->category->name }}</dd></div><div><dt class="text-xs uppercase text-secondary">Satuan</dt><dd class="mt-1 text-sm">{{ $item->unit->name }} ({{ $item->unit->symbol }})</dd></div>@endif</dl>
+        <div class="mt-7 flex flex-wrap gap-3"><a href="{{ route('admin.master-data.edit',[$resource,$item->id]) }}" class="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white">Edit</a><form method="POST" action="{{ route('admin.master-data.destroy',[$resource,$item->id]) }}" onsubmit="return confirm('Hapus data ini?')">@csrf @method('DELETE')<button class="rounded-xl border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-700">Hapus</button></form></div>
+    </section>
+</main>
+@endsection
