@@ -5,6 +5,7 @@
 <main class="w-full space-y-4 p-4"><a href="{{ route('inventory.transfers.index') }}" class="text-sm font-semibold text-primary">← Kembali ke distribusi</a><h1 class="font-poppins text-xl font-semibold">Minta stok ke gudang</h1><p class="text-sm text-secondary">Permintaan diteruskan ke tim gudang untuk disiapkan.</p>
     @if($errors->any())<div class="rounded-xl bg-red-50 p-3 text-sm text-red-700">{{ $errors->first() }}</div>@endif
     <form data-transfer-request method="POST" action="{{ route('inventory.transfers.requests.store') }}" class="space-y-4 rounded-2xl border border-outline bg-white p-4">@csrf
+        @if($locations->count() > 1)<label class="block text-sm font-semibold">Outlet tujuan<select name="location_id" required class="mt-1 w-full rounded-lg border p-2.5">@foreach($locations as $location)<option value="{{ $location->id }}" @selected((string) $selectedLocationId === (string) $location->id)>{{ $location->name }}</option>@endforeach</select></label>@endif
         <div class="flex items-center justify-between"><b>Daftar barang</b><button type="button" data-request-add class="rounded-lg border px-3 py-2 text-xs font-semibold">+ Tambah barang</button></div><div data-request-items class="space-y-2"></div>
         <label class="block text-sm font-semibold">Catatan<textarea name="notes" rows="3" class="mt-1 w-full rounded-lg border p-2.5 text-sm">{{ old('notes') }}</textarea></label><button class="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white">Kirim permintaan</button>
     </form>
@@ -15,6 +16,7 @@
 <section class="mx-auto max-w-3xl space-y-5"><a href="{{ route('inventory.transfers.index') }}" class="text-sm font-semibold text-primary">← Kembali ke distribusi</a><h1 class="font-poppins text-2xl font-semibold">Minta stok ke gudang</h1><p class="text-sm text-gray-500">Permintaan diteruskan ke tim gudang untuk disiapkan.</p>
     @if($errors->any())<div class="rounded-xl bg-red-50 p-4 text-sm text-red-700">{{ $errors->first() }}</div>@endif
     <form data-transfer-request method="POST" action="{{ route('inventory.transfers.requests.store') }}" class="space-y-5 rounded-2xl border bg-white p-6">@csrf
+        @if($locations->count() > 1)<label class="block text-sm font-semibold">Outlet tujuan<select name="location_id" required class="mt-1 w-full rounded-lg border p-2.5">@foreach($locations as $location)<option value="{{ $location->id }}" @selected((string) $selectedLocationId === (string) $location->id)>{{ $location->name }}</option>@endforeach</select></label>@endif
         <div class="flex items-center justify-between"><b>Daftar barang</b><button type="button" data-request-add class="rounded-lg border px-3 py-2 text-sm font-semibold">+ Tambah barang</button></div><div data-request-items class="space-y-2"></div>
         <label class="block text-sm font-semibold">Catatan<textarea name="notes" rows="3" class="mt-1 w-full rounded-lg border p-2.5 text-sm">{{ old('notes') }}</textarea></label><button class="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white">Kirim permintaan</button>
     </form>

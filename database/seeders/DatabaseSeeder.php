@@ -24,5 +24,7 @@ class DatabaseSeeder extends Seeder
         $user->roles()->syncWithoutDetaching([
             Role::query()->where('name', 'super_admin')->value('id'),
         ]);
+
+        $this->call(StockOpnameDemoSeeder::class);
     }
 }

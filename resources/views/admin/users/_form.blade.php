@@ -7,6 +7,11 @@
     <input id="email" name="email" type="email" value="{{ old('email', $user?->email) }}" required maxlength="255" class="w-full rounded-xl border border-outline bg-surface px-3.5 py-3 text-sm outline-none focus:border-primary">
 </div>
 <div>
+    <label for="whatsapp_phone" class="mb-1.5 block text-sm font-semibold text-on-surface">Nomor WhatsApp PIC (opsional)</label>
+    <input id="whatsapp_phone" name="whatsapp_phone" value="{{ old('whatsapp_phone', $user?->whatsapp_phone) }}" inputmode="tel" maxlength="24" placeholder="6281234567890" class="w-full rounded-xl border border-outline bg-surface px-3.5 py-3 text-sm outline-none focus:border-primary">
+    <p class="mt-1 text-xs text-secondary">Staff Gudang menerima info supplier untuk gudang penugasannya; Staff Outlet dan PIC Outlet menerima alert stok minimum outlet. PIC Gudang menerima permintaan persetujuan transfer. Gunakan kode negara, misalnya 62.</p>
+</div>
+<div>
     <label for="password" class="mb-1.5 block text-sm font-semibold text-on-surface">{{ $user ? 'Password baru (opsional)' : 'Password' }}</label>
     <div class="relative">
         <input id="password" name="password" type="password" {{ $user ? '' : 'required' }} autocomplete="new-password" class="w-full rounded-xl border border-outline bg-surface px-3.5 py-3 pr-12 text-sm outline-none focus:border-primary">
@@ -36,14 +41,14 @@
     </div>
 </fieldset>
 <div>
-    <label for="location_id" class="mb-1.5 block text-sm font-semibold text-on-surface">Outlet PIC <span class="font-normal text-secondary">(wajib untuk role PIC Outlet)</span></label>
+    <label for="location_id" class="mb-1.5 block text-sm font-semibold text-on-surface">Penempatan Lokasi <span class="font-normal text-secondary">(wajib untuk Staff Outlet, Staff Gudang, dan semua PIC)</span></label>
     <select id="location_id" name="location_id" class="w-full rounded-xl border border-outline bg-surface px-3.5 py-3 text-sm outline-none focus:border-primary">
-        <option value="">{{ $outlets->isEmpty() ? 'Belum ada outlet aktif' : 'Pilih outlet' }}</option>
-        @foreach ($outlets as $outlet)
-            <option value="{{ $outlet->id }}" @selected((string) old('location_id', $user?->location_id) === (string) $outlet->id)>{{ $outlet->name }}</option>
+        <option value="">{{ $locations->isEmpty() ? 'Belum ada lokasi aktif' : 'Pilih lokasi' }}</option>
+        @foreach ($locations as $location)
+            <option value="{{ $location->id }}" @selected((string) old('location_id', $user?->location_id) === (string) $location->id)>{{ $location->type === 'warehouse' ? 'Gudang · ' : 'Outlet · ' }}{{ $location->name }}</option>
         @endforeach
     </select>
-    @if ($outlets->isEmpty())
-        <p class="mt-2 text-xs text-amber-700">Belum ada lokasi aktif bertipe Outlet. Lokasi bertipe Gudang tidak ditampilkan untuk PIC Outlet. Tambahkan Outlet melalui <a class="font-semibold underline" href="{{ route('admin.master-data.index', 'locations') }}">Master Data Lokasi</a>.</p>
+    @if ($locations->isEmpty())
+        <p class="mt-2 text-xs text-amber-700">Belum ada lokasi Outlet atau Gudang yang aktif. Tambahkan lokasi melalui <a class="font-semibold underline" href="{{ route('admin.master-data.index', 'locations') }}">Master Data Lokasi</a>.</p>
     @endif
 </div>

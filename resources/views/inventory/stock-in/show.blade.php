@@ -29,10 +29,7 @@
                 <span class="text-[10px] font-semibold uppercase tracking-wider text-secondary">Dokumen Penerimaan</span>
                 <h1 class="font-mono text-lg font-bold text-on-surface mt-0.5">{{ $receipt->reference }}</h1>
             </div>
-            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-                Tercatat
-            </span>
+            @include('inventory.stock-in._status-badge', ['receipt' => $receipt])
         </div>
 
         <!-- Meta Grid -->
@@ -55,6 +52,14 @@
                 <dt class="text-[10px] text-secondary font-medium uppercase">Penerima</dt>
                 <dd class="mt-0.5 font-semibold text-on-surface truncate">{{ $receipt->receiver->name }}</dd>
             </div>
+            @if($receipt->purchaseInvoice)
+                <div class="col-span-2 rounded-xl border border-blue-100 bg-blue-50 p-2.5">
+                    <dt class="text-[10px] text-blue-700 font-medium uppercase">Faktur pembanding</dt>
+                    <dd class="mt-0.5 font-semibold text-blue-900">{{ $receipt->purchaseInvoice->invoice_number }}</dd>
+                </div>
+            @elseif($receipt->purchase_order_id)
+                <div class="col-span-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-900">Invoice pending ditautkan. Penerimaan ini tetap tercatat di ledger; Purchasing dapat menautkan dokumen nanti.</div>
+            @endif
         </dl>
 
         @if($receipt->notes)
@@ -63,6 +68,8 @@
                 <p>{{ $receipt->notes }}</p>
             </div>
         @endif
+
+        @include('inventory.stock-in._decision-panel', ['receipt' => $receipt, 'canApprove' => $canApprove])
 
         <!-- Items Header -->
         <div class="pt-2">
@@ -83,6 +90,15 @@
                                 {{ \App\Support\QuantityFormatter::format($item->quantity) }} {{ $item->product->unit->symbol }}
                             </span>
                         </div>
+                        @if($item->delivered_quantity !== null && (float) $item->delivered_quantity !== (float) $item->quantity)
+                            <p class="mt-2 text-[11px] text-secondary">Supplier mengirim {{ \App\Support\QuantityFormatter::format($item->delivered_quantity) }} {{ $item->product->unit->symbol }}.</p>
+                        @endif
+                        @if($item->invoice_quantity !== null)
+                            <p class="mt-2 text-[11px] text-secondary">Di faktur: <strong>{{ \App\Support\QuantityFormatter::format($item->invoice_quantity) }} {{ $item->product->unit->symbol }}</strong> · Masuk stok: <strong>{{ \App\Support\QuantityFormatter::format($item->quantity) }} {{ $item->product->unit->symbol }}</strong></p>
+                        @endif
+                        @if($item->variance_note)
+                            <p class="mt-2 rounded-lg bg-amber-50 p-2 text-[11px] text-amber-900">Catatan selisih: {{ $item->variance_note }}</p>
+                        @endif
                         <div class="mt-2 pt-2 border-t border-outline/40 flex flex-wrap items-center gap-2 text-[11px] text-secondary">
                             <span>Batch: <b>{{ $item->batch_number ?: '-' }}</b></span>
                             <span>•</span>
@@ -140,10 +156,7 @@
             </div>
 
             <div class="text-right shrink-0">
-                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-                    Tercatat di Ledger
-                </span>
+                @include('inventory.stock-in._status-badge', ['receipt' => $receipt])
             </div>
         </div>
 
@@ -195,7 +208,9 @@
                             <th class="py-3 px-4">Nama Produk</th>
                             <th class="py-3 px-4">Nomor Batch</th>
                             <th class="py-3 px-4">Kedaluwarsa (Expiry)</th>
-                            <th class="py-3 px-4 text-right">Kuantiti</th>
+                            <th class="py-3 px-4 text-right">Jumlah Faktur</th>
+                            <th class="py-3 px-4 text-right">Jumlah Datang</th>
+                            <th class="py-3 px-4 text-right">Masuk Stok</th>
                             <th class="py-3 px-4">Satuan</th>
                         </tr>
                     </thead>
@@ -203,7 +218,7 @@
                         @foreach($receipt->items as $item)
                             <tr class="hover:bg-gray-50/60 transition-colors">
                                 <td class="py-3 px-4 font-mono font-medium text-gray-700">{{ $item->product->sku }}</td>
-                                <td class="py-3 px-4 font-semibold text-gray-900">{{ $item->product->name }}</td>
+                                <td class="py-3 px-4 font-semibold text-gray-900">{{ $item->product->name }}@if($item->variance_note)<span class="mt-1 block max-w-xs text-[11px] font-normal text-amber-800">{{ $item->variance_note }}</span>@endif</td>
                                 <td class="py-3 px-4">
                                     @if($item->batch_number)
                                         <span class="font-mono text-gray-700 bg-gray-100 px-2 py-0.5 rounded text-[11px]">
@@ -216,6 +231,12 @@
                                 <td class="py-3 px-4 text-gray-700">
                                     {{ $item->expiry_date?->format('d M Y') ?? '—' }}
                                 </td>
+                                <td class="py-3 px-4 text-right font-semibold text-gray-700">
+                                    {{ $item->invoice_quantity === null ? '—' : \App\Support\QuantityFormatter::format($item->invoice_quantity) }}
+                                </td>
+                                <td class="py-3 px-4 text-right text-gray-700">
+                                    {{ \App\Support\QuantityFormatter::format($item->delivered_quantity ?? $item->quantity) }}
+                                </td>
                                 <td class="py-3 px-4 text-right font-bold text-gray-900 text-sm">
                                     {{ \App\Support\QuantityFormatter::format($item->quantity) }}
                                 </td>
@@ -227,5 +248,6 @@
             </div>
         </div>
     </div>
+    @include('inventory.stock-in._decision-panel', ['receipt' => $receipt, 'canApprove' => $canApprove])
 </section>
 @endsection

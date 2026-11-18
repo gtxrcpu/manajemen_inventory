@@ -1,6 +1,7 @@
 @extends('layouts.dashboard')
 
 @php $pageTitle = 'Detail Pengeluaran '.$issue->reference.' — Technolife'; @endphp
+@php($purposeLabels = ['sale' => 'Penjualan outlet', 'internal_use' => 'Pemakaian internal', 'sample' => 'Sampel / promosi', 'other' => 'Lainnya'])
 
 {{-- ======================================================================= --}}
 {{-- MOBILE CONTENT (< lg)                                                   --}}
@@ -50,6 +51,10 @@
                 <dd class="mt-0.5 font-semibold text-on-surface truncate text-rose-700">
                     {{ $issue->destination }}
                 </dd>
+            </div>
+            <div class="bg-surface-container-low rounded-xl p-2.5">
+                <dt class="text-[10px] text-secondary font-medium uppercase">Jenis pengeluaran</dt>
+                <dd class="mt-0.5 font-semibold text-on-surface">{{ $purposeLabels[$issue->purpose] ?? 'Belum diketahui (transaksi lama)' }}</dd>
             </div>
             <div class="bg-surface-container-low rounded-xl p-2.5">
                 <dt class="text-[10px] text-secondary font-medium uppercase">Petugas</dt>
@@ -165,6 +170,10 @@
                     <dd class="mt-1 font-semibold text-rose-700 text-sm truncate">
                         {{ $issue->destination }}
                     </dd>
+                </div>
+                <div class="bg-gray-50/70 border border-gray-100 rounded-xl p-3">
+                    <dt class="text-[10px] font-semibold uppercase text-gray-400">Jenis Pengeluaran</dt>
+                    <dd class="mt-1 font-semibold text-gray-900 text-sm">{{ $purposeLabels[$issue->purpose] ?? 'Belum diketahui (transaksi lama)' }}</dd>
                 </div>
                 <div class="bg-gray-50/70 border border-gray-100 rounded-xl p-3">
                     <dt class="text-[10px] font-semibold uppercase text-gray-400">Petugas Pengeluar</dt>

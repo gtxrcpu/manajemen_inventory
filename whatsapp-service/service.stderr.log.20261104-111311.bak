@@ -1,0 +1,32 @@
+WhatsApp disconnected: LOGOUT
+WhatsApp disconnected: LOGOUT
+WhatsApp logout is waiting for Windows to release its session lock; recovery will continue after cleanup.
+WhatsApp logout is still removing its local session; recovery will continue after cleanup.
+WhatsApp QR expired without a refresh; reloading WhatsApp Web to request a new QR.
+WhatsApp Web error: The Content Security Policy directive 'upgrade-insecure-requests' is ignored when delivered in a report-only policy.
+WhatsApp Web network request failed: static.whatsapp.net/rsrc.php/v5/yX/l/0,cross/hPJUxJWCaziGRLM5ENHN5kOB_OY8k1KqH.css net::ERR_CACHE_READ_FAILURE
+WhatsApp Web error: Failed to load resource: net::ERR_CACHE_READ_FAILURE
+WhatsApp Web network request failed: static.whatsapp.net/rsrc.php/v4/ye/r/V3m_qxsmJJ58siH_p9QarYi1B4lYCzWyOcR42CVruOtEDDBAtaInQPUJP1gU_lRVJV9Lp1-tVDCQIWzOWT8zS3Gr-K_sCC_1cZxKxIYesRoq_3OMYMRSPGU-1zJfTXQbgnGwQWL2GaLkK6Oe0qnL2dG90HrO1GHH6N2XQfibXh0vdaWGso6pjbbzH2b.js net::ERR_CACHE_READ_FAILURE
+WhatsApp Web error: Failed to load resource: net::ERR_CACHE_READ_FAILURE
+WhatsApp Web network request failed: static.whatsapp.net/rsrc.php/v4ixCr4/y-/l/en_GB-j/cBw5n0AwU_qU5Hra9OR8AHmTENXZtbfg_WiwJuhESS4wJgDfRNDTsWRbTNvZ3KOQaEIKLIY5FvTTmkQM7MCafchMDYChdA6Smm4cUsLTjPQJ_N4CW0WnsGdidwM-mR0JXt1OosOX1VeQVx7pzQKf35lbg2Thft7I6YgHuRagIyMsyiVcLcR0DD7mro6NmhlqGuCvKV6Nb5ANXaNy3eh8GQW_uIAdPycYmAtRzmhFfV5XC22PJncUJDIEOgeoa.js net::ERR_CACHE_READ_FAILURE
+WhatsApp Web error: Failed to load resource: net::ERR_CACHE_READ_FAILURE
+WhatsApp Web network request failed: static.whatsapp.net/rsrc.php/v4imxH4/yC/l/en_GB-j/rn7FOwNdXrupQDygnJFMXmfg8syeZl0p6Pchoc4nDTaYlTfMXwL7PbOchr2Q5gscvNqLHCXmPk0ZWfQw0HwMH_Qc0rXnsgD_XXoG0zDwx3IWD09Hka5G0SFBTVDaqbBqt_ax-E2R_Hi9v60slyuAdBpsNpdfEZ8E0s3VjoUhCqZPmSB9xI-P4goDUGmZsy4Ocjpn_4HDSTnDnVPWISZTYJQPev8yGI9ICZSRZ4N36Nl9eQtYUglSOJmFB6VcBd34GSLs9P4XBXf-uquuSDFtuh4wos9pBTVcS7fLHgxfEBy57olT7s-XBWQH8TZPuhcCwamb14RsoK.js net::ERR_CACHE_READ_FAILURE
+WhatsApp Web error: Failed to load resource: net::ERR_CACHE_READ_FAILURE
+WhatsApp Web network request failed: static.whatsapp.net/rsrc.php/v4/yc/r/ocXjT41Lp_v.js net::ERR_CACHE_READ_FAILURE
+WhatsApp Web error: Failed to load resource: net::ERR_CACHE_READ_FAILURE
+WhatsApp Web network request failed: static.whatsapp.net/rsrc.php/v4iBly4/yC/l/en_GB-j/KDgjGLPL-gN.js net::ERR_CACHE_READ_FAILURE
+WhatsApp Web error: Failed to load resource: net::ERR_CACHE_READ_FAILURE
+WhatsApp Web network request failed: static.whatsapp.net/rsrc.php/v4/yZ/r/pEPFS2I3mWo.js net::ERR_CACHE_READ_FAILURE
+WhatsApp Web error: Failed to load resource: net::ERR_CACHE_READ_FAILURE
+WhatsApp Web network request failed: static.whatsapp.net/rsrc.php/v4iN0R4/y7/l/en_GB-j/dAo6Vpl2mby5yCxWnyeDAii1YGPP3by_9G8TRdv7eiZV4_qQD6vzvyMlmi4TuhOPRTwWDsI1AcdmxZrn-QEoeIEsAUysOs8M8DpOniHWdn-gKR9ZZOIHMJqWk9brXgmSi_3cYdN7JoEWinKeR4w1CjVR7YimbdOgNtlW8dorNOofxa8RGpLrApYnOBL0lLV3-cdTYixbnrC4sJi6LQlMiPJ4vsm9hlukEjghE0XWYp3ex3d151PUVoqIjjst7omZB0ugfgeT42gei09Ue-Y_Fl8AbgBXWrTWN6AQVBTqn1wz3WKwQPRbuh7ovxDznq2DmX_O79dIO4.js net::ERR_CACHE_READ_FAILURE
+WhatsApp Web error: Failed to load resource: net::ERR_CACHE_READ_FAILURE
+WhatsApp Web network request failed: static.whatsapp.net/rsrc.php/v4ifAC4/y3/l/en_GB-j/HChbb3wj0hX.js net::ERR_CACHE_READ_FAILURE
+WhatsApp Web error: Failed to load resource: net::ERR_CACHE_READ_FAILURE
+
+C:\laragon\www\manajemen_inventory\whatsapp-service\src\server.js:415
+  throw reason;
+  ^
+auth timeout
+(Use `node --trace-uncaught ...` to show where the exception was thrown)
+
+Node.js v24.21.0

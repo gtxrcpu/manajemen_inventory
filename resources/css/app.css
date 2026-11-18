@@ -87,3 +87,45 @@
 .font-plex-mono {
     font-family: 'IBM Plex Mono', monospace;
 }
+
+/* Dialog modal centering & animation styles */
+dialog:modal {
+    margin: auto !important;
+    position: fixed !important;
+    inset: 0 !important;
+    max-height: calc(100vh - 2rem);
+    max-width: calc(100vw - 2rem);
+    border: none;
+    outline: none;
+}
+
+dialog[open] {
+    animation: dialogModalFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+dialog::backdrop {
+    background-color: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    animation: dialogBackdropFadeIn 0.22s ease-out forwards;
+}
+
+@keyframes dialogModalFadeIn {
+    0% {
+        opacity: 0;
+        transform: scale(0.95) translateY(6px);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+@keyframes dialogBackdropFadeIn {
+    0% {
+        opacity: 0;
+    }
+    100% {
+        opacity: 1;
+    }
+}

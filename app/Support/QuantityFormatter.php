@@ -4,6 +4,14 @@ namespace App\Support;
 
 class QuantityFormatter
 {
+    public static function formatInput(float|string|null $quantity, int $precision = 3): string
+    {
+        $formatted = number_format((float) $quantity, $precision, '.', '');
+        $formatted = rtrim(rtrim($formatted, '0'), '.');
+
+        return $formatted === '' ? '0' : $formatted;
+    }
+
     public static function format(float|string|null $quantity, int $precision = 3): string
     {
         $formatted = number_format((float) $quantity, $precision, ',', '.');

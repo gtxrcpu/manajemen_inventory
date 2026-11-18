@@ -34,6 +34,7 @@ class StockInAndOutViewTest extends TestCase
         $category = \App\Models\Category::create(['name' => 'Bahan Baku', 'is_active' => true]);
         $unit = Unit::create(['name' => 'Kilogram', 'symbol' => 'kg', 'is_active' => true]);
         $location = Location::create(['code' => 'WH-01', 'name' => 'Gudang Pusat', 'type' => 'warehouse', 'is_active' => true]);
+        $user->update(['location_id' => $location->id]);
         $supplier = Supplier::create(['name' => 'PT Sumber Pangan', 'is_active' => true]);
         $product = Product::create([
             'sku' => 'SKU-001',
@@ -76,6 +77,7 @@ class StockInAndOutViewTest extends TestCase
         $category = \App\Models\Category::create(['name' => 'Bahan Baku', 'is_active' => true]);
         $unit = Unit::create(['name' => 'Kilogram', 'symbol' => 'kg', 'is_active' => true]);
         $location = Location::create(['code' => 'WH-02', 'name' => 'Gudang Dapur', 'type' => 'warehouse', 'is_active' => true]);
+        $user->update(['location_id' => $location->id]);
         $product = Product::create([
             'sku' => 'SKU-002',
             'name' => 'Beras Pandan Wangi',

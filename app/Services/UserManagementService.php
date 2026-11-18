@@ -16,6 +16,7 @@ class UserManagementService
         return DB::transaction(function () use ($data) {
             $roleIds = $data['role_ids'];
             unset($data['role_ids']);
+            $data['whatsapp_phone'] = $this->normalizePhone($data['whatsapp_phone'] ?? null);
 
             $user = User::create($data + ['is_active' => true]);
             $user->roles()->sync($roleIds);
@@ -36,6 +37,7 @@ class UserManagementService
             $before = $this->snapshot($user);
             $roleIds = $data['role_ids'];
             unset($data['role_ids']);
+            $data['whatsapp_phone'] = $this->normalizePhone($data['whatsapp_phone'] ?? null);
 
             if (blank($data['password'] ?? null)) {
                 unset($data['password']);
@@ -83,12 +85,12 @@ class UserManagementService
                 $this->ensureActiveAdministratorRemains($user, false);
             }
 
-            $before = ['is_active' => $user->is_active];
+            $before = $this->snapshot($user);
             $user->forceFill(['is_active' => $nextState])->save();
 
             $this->auditLogger->record($nextState ? 'user.activated' : 'user.deactivated', $user, [
                 'before' => $before,
-                'after' => ['is_active' => $nextState],
+                'after' => $this->snapshot($user),
             ]);
         });
     }
@@ -116,9 +118,11 @@ class UserManagementService
     {
         DB::transaction(function () use ($userId) {
             $user = User::withTrashed()->lockForUpdate()->findOrFail($userId);
+            $before = ['deleted_at' => $user->deleted_at?->toIso8601String(), ...$this->snapshot($user)];
             $user->restore();
 
             $this->auditLogger->record('user.restored', $user, [
+                'before' => $before,
                 'after' => $this->snapshot($user),
             ]);
         });
@@ -151,7 +155,20 @@ class UserManagementService
             'email' => $user->email,
             'is_active' => $user->is_active,
             'location_id' => $user->location_id,
+            'whatsapp_phone' => $this->maskPhone($user->whatsapp_phone),
             'roles' => $user->roles()->pluck('name')->sort()->values()->all(),
         ];
+    }
+
+    private function normalizePhone(?string $phone): ?string
+    {
+        if (blank($phone)) return null;
+        return preg_replace('/\D+/', '', $phone);
+    }
+
+    private function maskPhone(?string $phone): ?string
+    {
+        if (! $phone) return null;
+        return str_repeat('*', max(0, strlen($phone) - 4)).substr($phone, -4);
     }
 }

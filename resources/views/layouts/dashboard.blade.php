@@ -6,12 +6,17 @@
 <div class="min-h-screen bg-surface font-inter text-on-surface antialiased selection:bg-primary-container selection:text-primary">
     @php
         $navbarUser = auth()->user();
-        $navbarLocations = $navbarUser->hasRole('pic_outlet')
-            ? collect([$navbarUser->location])->filter()
+        $isManagementReportUser = $navbarUser->hasRole('management') && ! $navbarUser->hasRole('super_admin');
+        $navbarScopedLocationIds = $navbarUser->isLocationScopedUser() ? $navbarUser->assignedLocationIds() : [];
+        $navbarIsWarehouseStaff = $navbarUser->isWarehouseStaff() && ! $navbarUser->hasRole('super_admin');
+        $navbarLocations = $navbarUser->isLocationScopedUser()
+            ? \App\Models\Location::whereIn('id', $navbarScopedLocationIds)->where('is_active', true)->orderBy('name')->get()
             : \App\Models\Location::where('is_active', true)->orderBy('name')->get();
-        $navbarSelectedLocationId = $navbarUser->hasRole('pic_outlet') ? $navbarUser->location_id : session('selected_location_id');
+        $navbarSelectedLocationId = $navbarUser->isLocationScopedUser()
+            ? (in_array((int) $navbarUser->location_id, $navbarScopedLocationIds, true) ? (int) $navbarUser->location_id : ($navbarScopedLocationIds[0] ?? null))
+            : session('selected_location_id');
         $navbarSelectedLocation = $navbarLocations->firstWhere('id', $navbarSelectedLocationId);
-        $navbarLocationName = $navbarSelectedLocation?->name ?? 'Semua Lokasi';
+        $navbarLocationName = $navbarSelectedLocation?->name ?? ($navbarIsWarehouseStaff ? 'Gudang belum ditetapkan' : ($navbarUser->isLocationScopedUser() ? 'Lokasi belum ditetapkan' : 'Semua Lokasi'));
         $unreadLowStockCount = $navbarUser->hasPermissionTo('low_stock.view')
             ? $navbarUser->unreadNotifications()->where('type', \App\Notifications\LowStockNotification::class)->count()
             : 0;
@@ -31,7 +36,7 @@
                 <a href="{{ route('dashboard') }}" aria-label="Technolife" class="flex items-center min-w-0 shrink-0">
                     <img src="{{ asset('logo.webp') }}" alt="Technolife" class="h-14 w-14 shrink-0 object-contain">
                 </a>
-                @if(!$navbarUser->hasRole('pic_outlet'))
+                @if(!$navbarUser->isLocationScopedUser())
                 <details class="relative shrink min-w-0">
                     <summary aria-label="Pilih lokasi" class="list-none cursor-pointer min-h-[40px] max-w-[130px] px-2 py-1.5 rounded-full bg-surface-container flex items-center gap-1 active:bg-surface-variant">
                         <span class="material-symbols-outlined text-primary text-[18px]">location_on</span>
@@ -68,7 +73,7 @@
                         </div>
                     </details>
                 @endif
-                <details class="relative shrink-0">
+                <details data-close-on-outside class="relative shrink-0">
                     <summary aria-label="Menu profil" class="flex min-h-[40px] cursor-pointer list-none items-center gap-0.5 px-1">
                         <span class="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-on-primary">
                             <span class="material-symbols-outlined text-[18px]">person</span>
@@ -110,25 +115,31 @@
                 <a href="{{ route('dashboard') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors', 'bg-primary/10 font-semibold text-primary' => request()->routeIs('dashboard'), 'font-medium text-gray-700 hover:bg-surface-container-low' => !request()->routeIs('dashboard')])>
                     <span class="material-symbols-outlined text-[20px]">dashboard</span>Dashboard
                 </a>
+                @unless($isManagementReportUser)
                 <a href="{{ route('inventory.stock.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors', 'bg-primary/10 font-semibold text-primary' => request()->routeIs('inventory.stock.*'), 'font-medium text-gray-700 hover:bg-surface-container-low' => !request()->routeIs('inventory.stock.*')])>
                     <span class="material-symbols-outlined text-[20px]">inventory_2</span>Data Stock
                 </a>
-                @if(auth()->user()->hasPermissionTo('stock.manage'))<a href="{{ route('inventory.stock-in.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors', 'bg-primary/10 font-semibold text-primary' => request()->routeIs('inventory.stock-in.*'), 'font-medium text-gray-700 hover:bg-surface-container-low' => !request()->routeIs('inventory.stock-in.*')])><span class="material-symbols-outlined text-[20px]">move_to_inbox</span>Stock In</a>@endif
+                @if(auth()->user()->hasPermissionTo('stock.manage'))<a href="{{ route('inventory.stock-in.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors', 'bg-primary/10 font-semibold text-primary' => request()->routeIs('inventory.stock-in.*') && !request()->routeIs('inventory.stock-in.purchase-orders'), 'font-medium text-gray-700 hover:bg-surface-container-low' => !(request()->routeIs('inventory.stock-in.*') && !request()->routeIs('inventory.stock-in.purchase-orders'))])><span class="material-symbols-outlined text-[20px]">move_to_inbox</span>Stock In</a>@elseif(auth()->user()->hasPermissionTo('stock-in.approve'))<a href="{{ route('inventory.stock-in.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors', 'bg-primary/10 font-semibold text-primary' => request()->routeIs('inventory.stock-in.*'), 'font-medium text-gray-700 hover:bg-surface-container-low' => !request()->routeIs('inventory.stock-in.*')])><span class="material-symbols-outlined text-[20px]">fact_check</span>Persetujuan Stock In</a>@endif
+                @if(auth()->user()->hasRole('staff_gudang') && auth()->user()->hasPermissionTo('stock.manage'))<a href="{{ route('inventory.stock-in.purchase-orders') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors', 'bg-primary/10 font-semibold text-primary' => request()->routeIs('inventory.stock-in.purchase-orders') || request()->routeIs('purchasing.orders.*'), 'font-medium text-gray-700 hover:bg-surface-container-low' => !(request()->routeIs('inventory.stock-in.purchase-orders') || request()->routeIs('purchasing.orders.*'))])><span class="material-symbols-outlined text-[20px]">fact_check</span>Validasi Penerimaan</a>@endif
                 @if(auth()->user()->hasPermissionTo('stock.manage'))<a href="{{ route('inventory.stock-out.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors', 'bg-primary/10 font-semibold text-primary' => request()->routeIs('inventory.stock-out.*'), 'font-medium text-gray-700 hover:bg-surface-container-low' => !request()->routeIs('inventory.stock-out.*')])><span class="material-symbols-outlined text-[20px]">outbox</span>Stock Out</a>@endif
-                @if(auth()->user()->hasPermissionTo('transfer.manage') || auth()->user()->hasPermissionTo('transfer.receive'))<a href="{{ route('inventory.transfers.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors', 'bg-primary/10 font-semibold text-primary' => request()->routeIs('inventory.transfers.*'), 'font-medium text-gray-700 hover:bg-surface-container-low' => !request()->routeIs('inventory.transfers.*')])><span class="material-symbols-outlined text-[20px]">local_shipping</span>Distribusi</a>@endif
-                @if(auth()->user()->hasPermissionTo('purchasing.manage') || auth()->user()->hasPermissionTo('purchasing.approve') || auth()->user()->hasPermissionTo('stock.manage'))<a href="{{ route('purchasing.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors', 'bg-primary/10 font-semibold text-primary' => request()->routeIs('purchasing.*'), 'font-medium text-gray-700 hover:bg-surface-container-low' => !request()->routeIs('purchasing.*')])><span class="material-symbols-outlined text-[20px]">shopping_cart</span>Pengadaan</a>@endif
+                @if(auth()->user()->hasPermissionTo('transfer.manage') || auth()->user()->hasPermissionTo('transfer.receive') || auth()->user()->hasPermissionTo('transfer.approve'))<a href="{{ route('inventory.transfers.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors', 'bg-primary/10 font-semibold text-primary' => request()->routeIs('inventory.transfers.*'), 'font-medium text-gray-700 hover:bg-surface-container-low' => !request()->routeIs('inventory.transfers.*')])><span class="material-symbols-outlined text-[20px]">local_shipping</span>Distribusi</a>@endif
+                @if(auth()->user()->hasPermissionTo('purchasing.manage'))<a href="{{ route('purchasing.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors', 'bg-primary/10 font-semibold text-primary' => request()->routeIs('purchasing.*'), 'font-medium text-gray-700 hover:bg-surface-container-low' => !request()->routeIs('purchasing.*')])><span class="material-symbols-outlined text-[20px]">shopping_cart</span>Pengadaan</a>@endif
+                @if(auth()->user()->hasPermissionTo('invoice.view') || auth()->user()->hasPermissionTo('invoice.review'))<a href="{{ route('purchase-invoices.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors', 'bg-primary/10 font-semibold text-primary' => request()->routeIs('purchase-invoices.*'), 'font-medium text-gray-700 hover:bg-surface-container-low' => !request()->routeIs('purchase-invoices.*')])><span class="material-symbols-outlined text-[20px]">receipt_long</span>Faktur Pembelian</a>@endif
                 @if(auth()->user()->hasPermissionTo('opname.manage') || auth()->user()->hasPermissionTo('opname.approve'))<a href="{{ route('inventory.stock-opname.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors', 'bg-primary/10 font-semibold text-primary' => request()->routeIs('inventory.stock-opname.*'), 'font-medium text-gray-700 hover:bg-surface-container-low' => !request()->routeIs('inventory.stock-opname.*')])><span class="material-symbols-outlined text-[20px]">fact_check</span>Stock Opname</a>@endif
-                @if(auth()->user()->hasPermissionTo('purchasing.approve') || auth()->user()->hasPermissionTo('opname.approve'))<a href="{{ route('approvals.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors', 'bg-primary/10 font-semibold text-primary' => request()->routeIs('approvals.*'), 'font-medium text-gray-700 hover:bg-surface-container-low' => !request()->routeIs('approvals.*')])><span class="material-symbols-outlined text-[20px]">fact_check</span>Persetujuan</a>@endif
+                @if(auth()->user()->hasPermissionTo('opname.approve') || auth()->user()->hasPermissionTo('stock-in.approve') || auth()->user()->hasPermissionTo('transfer.approve'))<a href="{{ route('approvals.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors', 'bg-primary/10 font-semibold text-primary' => request()->routeIs('approvals.*'), 'font-medium text-gray-700 hover:bg-surface-container-low' => !request()->routeIs('approvals.*')])><span class="material-symbols-outlined text-[20px]">fact_check</span>Persetujuan</a>@endif
                 @if(auth()->user()->hasPermissionTo('adjust.manage'))<a href="{{ route('inventory.stock-adjustments.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors', 'bg-primary/10 font-semibold text-primary' => request()->routeIs('inventory.stock-adjustments.*'), 'font-medium text-gray-700 hover:bg-surface-container-low' => !request()->routeIs('inventory.stock-adjustments.*')])><span class="material-symbols-outlined text-[20px]">tune</span>Stock Adjustment</a>@endif
                 <a href="{{ route('inventory.transactions.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors', 'bg-primary/10 font-semibold text-primary' => request()->routeIs('inventory.movements.*', 'inventory.transactions.*'), 'font-medium text-gray-700 hover:bg-surface-container-low' => !request()->routeIs('inventory.movements.*', 'inventory.transactions.*')])>
                     <span class="material-symbols-outlined text-[20px] text-secondary">receipt_long</span>Riwayat
                 </a>
-                <a href="{{ route('reports.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors', 'bg-primary/10 font-semibold text-primary' => request()->routeIs('reports.*'), 'font-medium text-gray-700 hover:bg-surface-container-low' => !request()->routeIs('reports.*')])>
-                    <span class="material-symbols-outlined text-[20px] text-secondary">bar_chart</span>Laporan
-                </a>
+                @if($navbarUser->hasPermissionTo('reports.view'))
+                    <a href="{{ route('reports.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors', 'bg-primary/10 font-semibold text-primary' => request()->routeIs('reports.*'), 'font-medium text-gray-700 hover:bg-surface-container-low' => !request()->routeIs('reports.*')])>
+                        <span class="material-symbols-outlined text-[20px] text-secondary">bar_chart</span>Laporan
+                    </a>
+                @endif
                 @if(auth()->user()->hasPermissionTo('low_stock.view'))<a href="{{ route('low-stock.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors', 'bg-primary/10 font-semibold text-primary' => request()->routeIs('low-stock.*'), 'font-medium text-gray-700 hover:bg-surface-container-low' => !request()->routeIs('low-stock.*')])><span class="material-symbols-outlined text-[20px]">notifications_active</span>Stok Minimum</a>@endif
                 @if(auth()->user()->hasPermissionTo('low_stock.manage'))<a href="{{ route('low-stock.thresholds') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors', 'bg-primary/10 font-semibold text-primary' => request()->routeIs('low-stock.thresholds'), 'font-medium text-gray-700 hover:bg-surface-container-low' => !request()->routeIs('low-stock.thresholds')])><span class="material-symbols-outlined text-[20px]">tune</span>Batas Minimum</a>@endif
                 @if(auth()->user()->hasPermissionTo('whatsapp.manage'))<a href="{{ route('admin.whatsapp-alerts.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors', 'bg-primary/10 font-semibold text-primary' => request()->routeIs('admin.whatsapp-alerts.*'), 'font-medium text-gray-700 hover:bg-surface-container-low' => !request()->routeIs('admin.whatsapp-alerts.*')])><span class="material-symbols-outlined text-[20px]">chat</span>Alert WhatsApp</a>@endif
+                @endunless
                 @if(auth()->user()->hasPermissionTo('users.manage'))
                     <p class="px-3 pb-2 pt-4 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Administrasi</p>
                     <a href="{{ route('admin.users.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors', 'bg-primary/10 font-semibold text-primary' => request()->routeIs('admin.users.*') || request()->routeIs('admin.roles.*'), 'font-medium text-gray-700 hover:bg-surface-container-low' => !request()->routeIs('admin.users.*') && !request()->routeIs('admin.roles.*')])>
@@ -136,6 +147,12 @@
                     </a>
                     <a href="{{ route('admin.master-data.index', 'products') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors', 'bg-primary/10 font-semibold text-primary' => request()->routeIs('admin.master-data.*'), 'font-medium text-gray-700 hover:bg-surface-container-low' => !request()->routeIs('admin.master-data.*')])>
                         <span class="material-symbols-outlined text-[20px]">database</span>Master Data
+                    </a>
+                    <a href="{{ route('admin.settings.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors', 'bg-primary/10 font-semibold text-primary' => request()->routeIs('admin.settings.*'), 'font-medium text-gray-700 hover:bg-surface-container-low' => !request()->routeIs('admin.settings.*')])>
+                        <span class="material-symbols-outlined text-[20px]">settings</span>Pengaturan Sistem
+                    </a>
+                    <a href="{{ route('admin.audit.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors', 'bg-primary/10 font-semibold text-primary' => request()->routeIs('admin.audit.*'), 'font-medium text-gray-700 hover:bg-surface-container-low' => !request()->routeIs('admin.audit.*')])>
+                        <span class="material-symbols-outlined text-[20px]">manage_search</span>Audit Aktivitas
                     </a>
                 @endif
             </div>
@@ -164,6 +181,16 @@
 
         <!-- Mobile Bottom Nav -->
         <nav aria-label="Navigasi utama" class="fixed bottom-0 left-0 z-50 w-full border-t border-outline/70 bg-white/95 pb-safe shadow-[0_-1px_8px_rgba(0,0,0,0.06)] backdrop-blur-xl">
+            @if($isManagementReportUser)
+            <div class="flex h-16 items-center justify-around px-3">
+                <a href="{{ route('dashboard') }}" @class(['flex min-h-12 min-w-[72px] flex-col items-center justify-center', 'text-primary' => request()->routeIs('dashboard'), 'text-secondary' => !request()->routeIs('dashboard')])><span class="material-symbols-outlined text-[22px]">home</span><span class="mt-0.5 text-[11px]">Beranda</span></a>
+                @if($navbarUser->hasPermissionTo('reports.view'))
+                    <a href="{{ route('reports.index') }}" @class(['flex min-h-12 min-w-[72px] flex-col items-center justify-center', 'text-primary' => request()->routeIs('reports.*'), 'text-secondary' => !request()->routeIs('reports.*')])><span class="material-symbols-outlined text-[22px]">bar_chart</span><span class="mt-0.5 text-[11px]">Laporan</span></a>
+                @endif
+                <a href="{{ route('finance.valuation') }}" @class(['flex min-h-12 min-w-[72px] flex-col items-center justify-center', 'text-primary' => request()->routeIs('finance.valuation*'), 'text-secondary' => !request()->routeIs('finance.valuation*')])><span class="material-symbols-outlined text-[22px]">calculate</span><span class="mt-0.5 text-[11px]">Valuasi</span></a>
+                <button type="button" onclick="openMobileDrawer()" class="flex min-h-12 min-w-[72px] flex-col items-center justify-center text-secondary" aria-label="Buka semua menu"><span class="material-symbols-outlined text-[22px]">menu</span><span class="mt-0.5 text-[11px]">Menu</span></button>
+            </div>
+            @else
             <div class="relative flex h-16 items-center justify-around px-1">
                 <a href="{{ route('dashboard') }}" @class(['relative flex min-h-12 min-w-[48px] flex-col items-center justify-center', 'text-primary' => request()->routeIs('dashboard'), 'text-secondary' => !request()->routeIs('dashboard')]) @if(request()->routeIs('dashboard')) aria-current="page" @endif>
                     <span class="material-symbols-outlined text-[22px]">home</span>
@@ -196,6 +223,7 @@
                     <span class="mt-0.5 text-[11px]">Lainnya</span>
                 </button>
             </div>
+            @endif
         </nav>
     </div>
 
@@ -218,25 +246,31 @@
                 <a href="{{ route('dashboard') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors', 'bg-[#FFF1F0] font-semibold text-[#DC143C]' => request()->routeIs('dashboard'), 'font-medium text-gray-600 hover:bg-gray-50' => !request()->routeIs('dashboard')])>
                     <span class="material-symbols-outlined text-[20px]">dashboard</span>Dashboard
                 </a>
+                @unless($isManagementReportUser)
                 <a href="{{ route('inventory.stock.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors', 'bg-[#FFF1F0] font-semibold text-[#DC143C]' => request()->routeIs('inventory.stock.*'), 'font-medium text-gray-600 hover:bg-gray-50' => !request()->routeIs('inventory.stock.*')])>
                     <span class="material-symbols-outlined text-[20px]">inventory_2</span>Data Stock
                 </a>
-                @if(auth()->user()->hasPermissionTo('stock.manage'))<a href="{{ route('inventory.stock-in.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors', 'bg-[#FFF1F0] font-semibold text-[#DC143C]' => request()->routeIs('inventory.stock-in.*'), 'font-medium text-gray-600 hover:bg-gray-50' => !request()->routeIs('inventory.stock-in.*')])><span class="material-symbols-outlined text-[20px]">move_to_inbox</span>Stock In</a>@endif
+                @if(auth()->user()->hasPermissionTo('stock.manage'))<a href="{{ route('inventory.stock-in.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors', 'bg-[#FFF1F0] font-semibold text-[#DC143C]' => request()->routeIs('inventory.stock-in.*') && !request()->routeIs('inventory.stock-in.purchase-orders'), 'font-medium text-gray-600 hover:bg-gray-50' => !(request()->routeIs('inventory.stock-in.*') && !request()->routeIs('inventory.stock-in.purchase-orders'))])><span class="material-symbols-outlined text-[20px]">move_to_inbox</span>Stock In</a>@elseif(auth()->user()->hasPermissionTo('stock-in.approve'))<a href="{{ route('inventory.stock-in.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors', 'bg-[#FFF1F0] font-semibold text-[#DC143C]' => request()->routeIs('inventory.stock-in.*'), 'font-medium text-gray-600 hover:bg-gray-50' => !request()->routeIs('inventory.stock-in.*')])><span class="material-symbols-outlined text-[20px]">fact_check</span>Persetujuan Stock In</a>@endif
+                @if(auth()->user()->hasRole('staff_gudang') && auth()->user()->hasPermissionTo('stock.manage'))<a href="{{ route('inventory.stock-in.purchase-orders') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors', 'bg-[#FFF1F0] font-semibold text-[#DC143C]' => request()->routeIs('inventory.stock-in.purchase-orders') || request()->routeIs('purchasing.orders.*'), 'font-medium text-gray-600 hover:bg-gray-50' => !(request()->routeIs('inventory.stock-in.purchase-orders') || request()->routeIs('purchasing.orders.*'))])><span class="material-symbols-outlined text-[20px]">fact_check</span>Validasi Penerimaan</a>@endif
                 @if(auth()->user()->hasPermissionTo('stock.manage'))<a href="{{ route('inventory.stock-out.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors', 'bg-[#FFF1F0] font-semibold text-[#DC143C]' => request()->routeIs('inventory.stock-out.*'), 'font-medium text-gray-600 hover:bg-gray-50' => !request()->routeIs('inventory.stock-out.*')])><span class="material-symbols-outlined text-[20px]">outbox</span>Stock Out</a>@endif
-                @if(auth()->user()->hasPermissionTo('transfer.manage') || auth()->user()->hasPermissionTo('transfer.receive'))<a href="{{ route('inventory.transfers.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors', 'bg-[#FFF1F0] font-semibold text-[#DC143C]' => request()->routeIs('inventory.transfers.*'), 'font-medium text-gray-600 hover:bg-gray-50' => !request()->routeIs('inventory.transfers.*')])><span class="material-symbols-outlined text-[20px]">local_shipping</span>Distribusi</a>@endif
-                @if(auth()->user()->hasPermissionTo('purchasing.manage') || auth()->user()->hasPermissionTo('purchasing.approve') || auth()->user()->hasPermissionTo('stock.manage'))<a href="{{ route('purchasing.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors', 'bg-[#FFF1F0] font-semibold text-[#DC143C]' => request()->routeIs('purchasing.*'), 'font-medium text-gray-600 hover:bg-gray-50' => !request()->routeIs('purchasing.*')])><span class="material-symbols-outlined text-[20px]">shopping_cart</span>Pengadaan</a>@endif
+                @if(auth()->user()->hasPermissionTo('transfer.manage') || auth()->user()->hasPermissionTo('transfer.receive') || auth()->user()->hasPermissionTo('transfer.approve'))<a href="{{ route('inventory.transfers.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors', 'bg-[#FFF1F0] font-semibold text-[#DC143C]' => request()->routeIs('inventory.transfers.*'), 'font-medium text-gray-600 hover:bg-gray-50' => !request()->routeIs('inventory.transfers.*')])><span class="material-symbols-outlined text-[20px]">local_shipping</span>Distribusi</a>@endif
+                @if(auth()->user()->hasPermissionTo('purchasing.manage'))<a href="{{ route('purchasing.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors', 'bg-[#FFF1F0] font-semibold text-[#DC143C]' => request()->routeIs('purchasing.*'), 'font-medium text-gray-600 hover:bg-gray-50' => !request()->routeIs('purchasing.*')])><span class="material-symbols-outlined text-[20px]">shopping_cart</span>Pengadaan</a>@endif
+                @if(auth()->user()->hasPermissionTo('invoice.view') || auth()->user()->hasPermissionTo('invoice.review'))<a href="{{ route('purchase-invoices.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors', 'bg-[#FFF1F0] font-semibold text-[#DC143C]' => request()->routeIs('purchase-invoices.*'), 'font-medium text-gray-600 hover:bg-gray-50' => !request()->routeIs('purchase-invoices.*')])><span class="material-symbols-outlined text-[20px]">receipt_long</span>Faktur Pembelian</a>@endif
                 @if(auth()->user()->hasPermissionTo('opname.manage') || auth()->user()->hasPermissionTo('opname.approve'))<a href="{{ route('inventory.stock-opname.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors', 'bg-[#FFF1F0] font-semibold text-[#DC143C]' => request()->routeIs('inventory.stock-opname.*'), 'font-medium text-gray-600 hover:bg-gray-50' => !request()->routeIs('inventory.stock-opname.*')])><span class="material-symbols-outlined text-[20px]">fact_check</span>Stock Opname</a>@endif
-                @if(auth()->user()->hasPermissionTo('purchasing.approve') || auth()->user()->hasPermissionTo('opname.approve'))<a href="{{ route('approvals.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors', 'bg-[#FFF1F0] font-semibold text-[#DC143C]' => request()->routeIs('approvals.*'), 'font-medium text-gray-600 hover:bg-gray-50' => !request()->routeIs('approvals.*')])><span class="material-symbols-outlined text-[20px]">fact_check</span>Persetujuan</a>@endif
+                @if(auth()->user()->hasPermissionTo('opname.approve') || auth()->user()->hasPermissionTo('stock-in.approve') || auth()->user()->hasPermissionTo('transfer.approve'))<a href="{{ route('approvals.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors', 'bg-[#FFF1F0] font-semibold text-[#DC143C]' => request()->routeIs('approvals.*'), 'font-medium text-gray-600 hover:bg-gray-50' => !request()->routeIs('approvals.*')])><span class="material-symbols-outlined text-[20px]">fact_check</span>Persetujuan</a>@endif
                 @if(auth()->user()->hasPermissionTo('adjust.manage'))<a href="{{ route('inventory.stock-adjustments.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors', 'bg-[#FFF1F0] font-semibold text-[#DC143C]' => request()->routeIs('inventory.stock-adjustments.*'), 'font-medium text-gray-600 hover:bg-gray-50' => !request()->routeIs('inventory.stock-adjustments.*')])><span class="material-symbols-outlined text-[20px]">tune</span>Stock Adjustment</a>@endif
                 <a href="{{ route('inventory.transactions.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors', 'bg-[#FFF1F0] font-semibold text-[#DC143C]' => request()->routeIs('inventory.movements.*', 'inventory.transactions.*'), 'font-medium text-gray-600 hover:bg-gray-50' => !request()->routeIs('inventory.movements.*', 'inventory.transactions.*')])>
                     <span class="material-symbols-outlined text-[20px]">receipt_long</span>Riwayat
                 </a>
-                <a href="{{ route('reports.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors', 'bg-[#FFF1F0] font-semibold text-[#DC143C]' => request()->routeIs('reports.*'), 'font-medium text-gray-600 hover:bg-gray-50' => !request()->routeIs('reports.*')])>
-                    <span class="material-symbols-outlined text-[20px]">bar_chart</span>Laporan
-                </a>
+                @if($navbarUser->hasPermissionTo('reports.view'))
+                    <a href="{{ route('reports.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors', 'bg-[#FFF1F0] font-semibold text-[#DC143C]' => request()->routeIs('reports.*'), 'font-medium text-gray-600 hover:bg-gray-50' => !request()->routeIs('reports.*')])>
+                        <span class="material-symbols-outlined text-[20px]">bar_chart</span>Laporan
+                    </a>
+                @endif
                 @if(auth()->user()->hasPermissionTo('low_stock.view'))<a href="{{ route('low-stock.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors', 'bg-[#FFF1F0] font-semibold text-[#DC143C]' => request()->routeIs('low-stock.*'), 'font-medium text-gray-600 hover:bg-gray-50' => !request()->routeIs('low-stock.*')])><span class="material-symbols-outlined text-[20px]">notifications_active</span>Stok Minimum</a>@endif
                 @if(auth()->user()->hasPermissionTo('low_stock.manage'))<a href="{{ route('low-stock.thresholds') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors', 'bg-[#FFF1F0] font-semibold text-[#DC143C]' => request()->routeIs('low-stock.thresholds'), 'font-medium text-gray-600 hover:bg-gray-50' => !request()->routeIs('low-stock.thresholds')])><span class="material-symbols-outlined text-[20px]">tune</span>Batas Minimum</a>@endif
                 @if(auth()->user()->hasPermissionTo('whatsapp.manage'))<a href="{{ route('admin.whatsapp-alerts.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors', 'bg-[#FFF1F0] font-semibold text-[#DC143C]' => request()->routeIs('admin.whatsapp-alerts.*'), 'font-medium text-gray-600 hover:bg-gray-50' => !request()->routeIs('admin.whatsapp-alerts.*')])><span class="material-symbols-outlined text-[20px]">chat</span>Alert WhatsApp</a>@endif
+                @endunless
                 @if(auth()->user()->hasPermissionTo('users.manage'))
                     <p class="px-3 pb-2 pt-5 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Administrasi</p>
                     <a href="{{ route('admin.users.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors', 'bg-[#FFF1F0] font-semibold text-[#DC143C]' => request()->routeIs('admin.users.*') || request()->routeIs('admin.roles.*'), 'font-medium text-gray-600 hover:bg-gray-50' => !request()->routeIs('admin.users.*') && !request()->routeIs('admin.roles.*')])>
@@ -244,6 +278,12 @@
                     </a>
                     <a href="{{ route('admin.master-data.index', 'products') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors', 'bg-[#FFF1F0] font-semibold text-[#DC143C]' => request()->routeIs('admin.master-data.*'), 'font-medium text-gray-600 hover:bg-gray-50' => !request()->routeIs('admin.master-data.*')])>
                         <span class="material-symbols-outlined text-[20px]">database</span>Master Data
+                    </a>
+                    <a href="{{ route('admin.settings.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors', 'bg-[#FFF1F0] font-semibold text-[#DC143C]' => request()->routeIs('admin.settings.*'), 'font-medium text-gray-600 hover:bg-gray-50' => !request()->routeIs('admin.settings.*')])>
+                        <span class="material-symbols-outlined text-[20px]">settings</span>Pengaturan Sistem
+                    </a>
+                    <a href="{{ route('admin.audit.index') }}" @class(['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors', 'bg-[#FFF1F0] font-semibold text-[#DC143C]' => request()->routeIs('admin.audit.*'), 'font-medium text-gray-600 hover:bg-gray-50' => !request()->routeIs('admin.audit.*')])>
+                        <span class="material-symbols-outlined text-[20px]">manage_search</span>Audit Aktivitas
                     </a>
                 @endif
             </div>
@@ -257,7 +297,7 @@
                 <div class="h-full grid grid-cols-[200px_1fr_200px] items-center px-5 xl:px-6 gap-4">
                     <!-- Left: Location -->
                     <div class="flex items-center">
-                        @if(!$navbarUser->hasRole('pic_outlet'))
+                        @if(!$navbarUser->isLocationScopedUser())
                         <details class="relative">
                             <summary aria-label="Pilih lokasi" class="flex list-none cursor-pointer items-center gap-1.5 px-2.5 py-1.5 bg-[#FBF9F8] hover:bg-[#F5F5FA] border border-[#EAEAEA] rounded-lg text-xs font-medium text-gray-700 transition-colors"><span class="material-symbols-outlined text-[16px] text-gray-500">location_on</span><span class="truncate max-w-[110px]">{{ $navbarLocationName }}</span><span class="material-symbols-outlined text-[16px] text-gray-400">arrow_drop_down</span></summary>
                             <div class="absolute left-0 top-10 z-50 w-56 rounded-xl border border-[#EAEAEA] bg-white p-2 text-gray-800 shadow-xl">
@@ -303,7 +343,7 @@
                                 </div>
                             </details>
                         @endif
-                        <details class="relative">
+                        <details data-close-on-outside class="relative">
                             <summary aria-label="Menu profil" class="flex cursor-pointer list-none items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-100 transition-colors">
                                 <span class="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-gray-100 text-gray-600">
                                     <span class="material-symbols-outlined text-[18px]">person</span>
@@ -354,6 +394,18 @@
         document.body.style.overflow = '';
     }
     document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeMobileDrawer(); });
+    document.addEventListener('pointerdown', function(e) {
+        document.querySelectorAll('details[data-close-on-outside][open]').forEach(function(menu) {
+            if (!menu.contains(e.target)) menu.removeAttribute('open');
+        });
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('details[data-close-on-outside][open]').forEach(function(menu) {
+                menu.removeAttribute('open');
+            });
+        }
+    });
     document.addEventListener('keydown', function(e) {
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
             e.preventDefault();

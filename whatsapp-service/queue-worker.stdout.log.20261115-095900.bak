@@ -1,0 +1,38 @@
+
+Warning: PHP Startup: Unable to load dynamic library 'curl' (tried: C:/laragon/bin/php/php-8.3.33-Win32-vs16-x64/ext\curl (The specified module could not be found), C:/laragon/bin/php/php-8.3.33-Win32-vs16-x64/ext\php_curl.dll (An Application Control policy has blocked this file)) in Unknown on line 0
+
+Warning: PHP Startup: Unable to load dynamic library 'fileinfo' (tried: C:/laragon/bin/php/php-8.3.33-Win32-vs16-x64/ext\fileinfo (The specified module could not be found), C:/laragon/bin/php/php-8.3.33-Win32-vs16-x64/ext\php_fileinfo.dll (An Application Control policy has blocked this file)) in Unknown on line 0
+
+Warning: PHP Startup: Unable to load dynamic library 'intl' (tried: C:/laragon/bin/php/php-8.3.33-Win32-vs16-x64/ext\intl (The specified module could not be found), C:/laragon/bin/php/php-8.3.33-Win32-vs16-x64/ext\php_intl.dll (An Application Control policy has blocked this file)) in Unknown on line 0
+
+Warning: PHP Startup: Unable to load dynamic library 'mbstring' (tried: C:/laragon/bin/php/php-8.3.33-Win32-vs16-x64/ext\mbstring (The specified module could not be found), C:/laragon/bin/php/php-8.3.33-Win32-vs16-x64/ext\php_mbstring.dll (An Application Control policy has blocked this file)) in Unknown on line 0
+
+Warning: PHP Startup: Unable to load dynamic library 'exif' (tried: C:/laragon/bin/php/php-8.3.33-Win32-vs16-x64/ext\exif (The specified module could not be found), C:/laragon/bin/php/php-8.3.33-Win32-vs16-x64/ext\php_exif.dll (An Application Control policy has blocked this file)) in Unknown on line 0
+
+Warning: PHP Startup: Unable to load dynamic library 'openssl' (tried: C:/laragon/bin/php/php-8.3.33-Win32-vs16-x64/ext\openssl (The specified module could not be found), C:/laragon/bin/php/php-8.3.33-Win32-vs16-x64/ext\php_openssl.dll (An Application Control policy has blocked this file)) in Unknown on line 0
+
+Warning: PHP Startup: Unable to load dynamic library 'pdo_sqlite' (tried: C:/laragon/bin/php/php-8.3.33-Win32-vs16-x64/ext\pdo_sqlite (The specified module could not be found), C:/laragon/bin/php/php-8.3.33-Win32-vs16-x64/ext\php_pdo_sqlite.dll (An Application Control policy has blocked this file)) in Unknown on line 0
+
+Warning: PHP Startup: Unable to load dynamic library 'sqlite3' (tried: C:/laragon/bin/php/php-8.3.33-Win32-vs16-x64/ext\sqlite3 (The specified module could not be found), C:/laragon/bin/php/php-8.3.33-Win32-vs16-x64/ext\php_sqlite3.dll (An Application Control policy has blocked this file)) in Unknown on line 0
+
+   Error 
+
+  Call to undefined function Illuminate\Support\mb_split()
+
+  at vendor\laravel\framework\src\Illuminate\Support\Str.php:1728
+    1724▕         if (isset(static::$studlyCache[$key])) {
+    1725▕             return static::$studlyCache[$key];
+    1726▕         }
+    1727▕ 
+  ➜ 1728▕         $words = mb_split('\s+', static::replace(['-', '_'], ' ', $value));
+    1729▕ 
+    1730▕         $studlyWords = array_map(fn ($word) => static::ucfirst($word), $words);
+    1731▕ 
+    1732▕         return static::$studlyCache[$key] = implode($studlyWords);
+
+  1   vendor\laravel\framework\src\Illuminate\Support\Manager.php:98
+      Illuminate\Support\Str::studly("file")
+
+  2   vendor\laravel\framework\src\Illuminate\Support\Manager.php:78
+      Illuminate\Support\Manager::createDriver("file")
+

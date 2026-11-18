@@ -23,21 +23,36 @@
 
     {{-- Stats --}}
     <div class="grid grid-cols-2 gap-3">
-        <div class="rounded-2xl bg-white border border-outline p-4">
-            <p class="text-xs text-gray-500">Total Transfer</p>
-            <p class="mt-1 text-2xl font-bold text-gray-800">{{ $stats['total'] }}</p>
+        <div class="flex items-center justify-between gap-3 rounded-xl border border-outline bg-white p-4 shadow-sm">
+            <div class="min-w-0"><p class="text-[10px] font-semibold uppercase tracking-wider text-secondary">Total Transfer</p>
+            <p class="mt-1.5 font-poppins text-xl font-semibold text-on-surface">{{ $stats['total'] }}</p></div>
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface-container-low"><span class="material-symbols-outlined block text-[20px] leading-none text-secondary">swap_horiz</span></span>
         </div>
-        <div class="rounded-2xl bg-amber-50 border border-amber-200 p-4">
-            <p class="text-xs text-amber-600">Dalam Perjalanan</p>
-            <p class="mt-1 text-2xl font-bold text-amber-700">{{ $stats['in_transit'] }}</p>
+        <div class="flex items-center justify-between gap-3 rounded-xl border border-outline bg-white p-4 shadow-sm">
+            <div class="min-w-0"><p class="text-[10px] font-semibold uppercase tracking-wider text-secondary">Dalam Perjalanan</p>
+            <p class="mt-1.5 font-poppins text-xl font-semibold text-on-surface">{{ $stats['in_transit'] }}</p><p class="mt-1 text-xs text-secondary">{{ \App\Support\QuantityFormatter::format($stats['in_transit_quantity'] ?? 0) }} unit masih dalam kendali perusahaan</p></div>
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50"><span class="material-symbols-outlined block text-[20px] leading-none text-amber-700">local_shipping</span></span>
         </div>
-        <div class="rounded-2xl bg-green-50 border border-green-200 p-4">
-            <p class="text-xs text-green-600">Diterima</p>
-            <p class="mt-1 text-2xl font-bold text-green-700">{{ $stats['received'] }}</p>
+        <div class="flex items-center justify-between gap-3 rounded-xl border border-outline bg-white p-4 shadow-sm">
+            <div class="min-w-0"><p class="text-[10px] font-semibold uppercase tracking-wider text-secondary">Diterima</p>
+            <p class="mt-1.5 font-poppins text-xl font-semibold text-on-surface">{{ $stats['received'] }}</p></div>
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-green-50"><span class="material-symbols-outlined block text-[20px] leading-none text-green-700">task_alt</span></span>
         </div>
-        <div class="rounded-2xl bg-blue-50 border border-blue-200 p-4">
-            <p class="text-xs text-blue-600">Permintaan Aktif</p>
-            <p class="mt-1 text-2xl font-bold text-blue-700">{{ $stats['pending_requests'] }}</p>
+        @if($isWarehousePic)
+        <a href="{{ route('inventory.transfers.index', ['status' => 'pending_approval']) }}" class="flex items-center justify-between gap-3 rounded-xl border border-violet-200 bg-violet-50 p-4 shadow-sm">
+            <div class="min-w-0"><p class="text-[10px] font-semibold uppercase tracking-wider text-violet-800">Menunggu Persetujuan</p><p class="mt-1.5 font-poppins text-xl font-semibold text-violet-950">{{ $stats['pending_approval'] }}</p></div>
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white"><span class="material-symbols-outlined block text-[20px] leading-none text-violet-700">fact_check</span></span>
+        </a>
+        @endif
+        <div class="flex items-center justify-between gap-3 rounded-xl border border-outline bg-white p-4 shadow-sm">
+            <div class="min-w-0"><p class="text-[10px] font-semibold uppercase tracking-wider text-secondary">Permintaan Aktif</p>
+            <p class="mt-1.5 font-poppins text-xl font-semibold text-on-surface">{{ $stats['pending_requests'] }}</p></div>
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10"><span class="material-symbols-outlined block text-[20px] leading-none text-primary">pending_actions</span></span>
+        </div>
+        <div class="flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4 shadow-sm">
+            <div class="min-w-0"><p class="text-[10px] font-semibold uppercase tracking-wider text-red-800">Discrepancy Terbuka</p>
+            <p class="mt-1.5 font-poppins text-xl font-semibold text-red-900">{{ $stats['open_discrepancies'] }}</p></div>
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white"><span class="material-symbols-outlined block text-[20px] leading-none text-red-700">report_problem</span></span>
         </div>
     </div>
 
@@ -58,7 +73,7 @@
             </div>
             <ul class="mt-2 space-y-0.5 text-xs text-gray-600">
                 @foreach($transferRequest->items as $item)
-                <li class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px] text-gray-400">inventory_2</span>{{ $item->product->name }} — {{ \App\Support\QuantityFormatter::format($item->quantity) }} {{ $item->product->unit->symbol }}</li>
+                <li class="flex items-center gap-1"><span class="material-symbols-outlined shrink-0 text-[14px] leading-none text-gray-400">inventory_2</span>{{ $item->product->name }} — {{ \App\Support\QuantityFormatter::format($item->quantity) }} {{ $item->product->unit->symbol }}</li>
                 @endforeach
             </ul>
             @if($transferRequest->status === 'pending')
@@ -80,11 +95,13 @@
         <h2 class="font-semibold text-sm text-gray-700">Riwayat Transfer</h2>
         @forelse($transfers as $transfer)
         @php
-            $statusMap = ['in_transit' => ['label' => 'Dalam perjalanan', 'class' => 'bg-amber-100 text-amber-800'],
+            $statusMap = ['pending_approval' => ['label' => 'Menunggu PIC Gudang', 'class' => 'bg-violet-100 text-violet-800'], 'in_transit' => ['label' => 'Dalam perjalanan', 'class' => 'bg-amber-100 text-amber-800'],
                 'partially_received'   => ['label' => 'Diterima sebagian', 'class' => 'bg-blue-100 text-blue-800'],
                 'received'             => ['label' => 'Diterima', 'class' => 'bg-green-100 text-green-800'],
-                'received_with_discrepancy' => ['label' => 'Selesai (selisih)', 'class' => 'bg-purple-100 text-purple-800']];
+                'discrepancy_open' => ['label' => 'Discrepancy terbuka', 'class' => 'bg-red-100 text-red-800'],
+                'received_with_discrepancy' => ['label' => 'Selesai (selisih diputuskan)', 'class' => 'bg-purple-100 text-purple-800']];
             $st = $statusMap[$transfer->status] ?? ['label' => $transfer->status, 'class' => 'bg-gray-100 text-gray-700'];
+            if ($transfer->status === 'in_transit' && $transfer->expected_arrival_at?->isPast()) $st = ['label' => 'Terlambat', 'class' => 'bg-rose-100 text-rose-800'];
         @endphp
         <a href="{{ route('inventory.transfers.show', $transfer) }}" class="block rounded-2xl border border-outline bg-white p-4 hover:border-primary/40 transition-colors">
             <div class="flex items-start justify-between gap-2">
@@ -92,13 +109,19 @@
                 <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold {{ $st['class'] }}">{{ $st['label'] }}</span>
             </div>
             <div class="mt-2 flex items-center gap-1 text-xs text-gray-600">
-                <span class="material-symbols-outlined text-[14px]">warehouse</span>
+                <span class="material-symbols-outlined shrink-0 text-[14px] leading-none">warehouse</span>
                 {{ $transfer->sourceLocation->name }}
-                <span class="material-symbols-outlined text-[14px] text-gray-400">arrow_forward</span>
+                <span class="material-symbols-outlined shrink-0 text-[14px] leading-none text-gray-400">arrow_forward</span>
                 {{ $transfer->destinationLocation->name }}
             </div>
-            <p class="mt-1 text-xs text-gray-400">{{ $transfer->dispatched_at->format('d M Y H:i') }} · {{ $transfer->items->count() }} barang</p>
+            <p class="mt-1 text-xs text-gray-400">{{ $transfer->dispatched_at ? $transfer->dispatched_at->timezone('Asia/Jakarta')->format('d M Y H:i').' WIB' : 'Menunggu persetujuan' }} · {{ $transfer->items->count() }} barang</p>
+            @if($transfer->expected_arrival_at)<p class="mt-1 text-[10px] {{ $transfer->status === 'in_transit' && $transfer->expected_arrival_at->isPast() ? 'font-semibold text-rose-700' : 'text-slate-500' }}">Estimasi tiba {{ $transfer->expected_arrival_at->timezone('Asia/Jakarta')->format('d M, H:i') }} WIB</p>@endif
         </a>
+        @if($isPic && $canReceive && in_array($transfer->status, ['in_transit', 'partially_received', 'discrepancy_open'], true))
+            <a href="{{ route('inventory.transfers.show', $transfer) }}#receipt-form" class="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800">
+                <span class="material-symbols-outlined text-[18px]">fact_check</span> Konfirmasi penerimaan barang
+            </a>
+        @endif
         @empty
         <div class="rounded-2xl border border-outline bg-white p-8 text-center text-sm text-secondary">Belum ada transfer stok.</div>
         @endforelse
@@ -135,55 +158,67 @@
     @endif
 
     {{-- KPI Cards --}}
-    <div class="grid grid-cols-4 gap-4">
-        <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div class="rounded-xl border border-outline bg-white p-4 shadow-sm">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Total Transfer</p>
-                    <p class="mt-2 text-3xl font-bold text-gray-800">{{ $stats['total'] }}</p>
+                    <p class="text-[10px] font-semibold uppercase tracking-wider text-secondary">Total Transfer</p>
+                    <p class="mt-1.5 font-poppins text-xl font-semibold text-on-surface">{{ $stats['total'] }}</p>
                 </div>
-                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100">
-                    <span class="material-symbols-outlined text-[22px] text-gray-600">swap_horiz</span>
+                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-surface-container-low">
+                    <span class="material-symbols-outlined text-[20px] text-secondary">swap_horiz</span>
                 </div>
             </div>
         </div>
-        <div class="rounded-2xl border border-amber-100 bg-amber-50 p-5 shadow-sm">
+        <div class="rounded-xl border border-outline bg-white p-4 shadow-sm">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-xs font-medium text-amber-600 uppercase tracking-wide">Dalam Perjalanan</p>
-                    <p class="mt-2 text-3xl font-bold text-amber-700">{{ $stats['in_transit'] }}</p>
+                    <p class="text-[10px] font-semibold uppercase tracking-wider text-secondary">Dalam Perjalanan</p>
+                    <p class="mt-1.5 font-poppins text-xl font-semibold text-on-surface">{{ $stats['in_transit'] }}</p>
+                    <p class="mt-1 text-xs text-secondary">{{ \App\Support\QuantityFormatter::format($stats['in_transit_quantity'] ?? 0) }} unit persediaan perusahaan</p>
                 </div>
-                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-200">
-                    <span class="material-symbols-outlined text-[22px] text-amber-700">local_shipping</span>
+                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50">
+                    <span class="material-symbols-outlined text-[20px] text-amber-700">local_shipping</span>
                 </div>
             </div>
         </div>
-        <div class="rounded-2xl border border-green-100 bg-green-50 p-5 shadow-sm">
+        <div class="rounded-xl border border-outline bg-white p-4 shadow-sm">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-xs font-medium text-green-600 uppercase tracking-wide">Diterima</p>
-                    <p class="mt-2 text-3xl font-bold text-green-700">{{ $stats['received'] }}</p>
+                    <p class="text-[10px] font-semibold uppercase tracking-wider text-secondary">Diterima</p>
+                    <p class="mt-1.5 font-poppins text-xl font-semibold text-on-surface">{{ $stats['received'] }}</p>
                 </div>
-                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-green-200">
-                    <span class="material-symbols-outlined text-[22px] text-green-700">task_alt</span>
+                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50">
+                    <span class="material-symbols-outlined text-[20px] text-green-700">task_alt</span>
                 </div>
             </div>
         </div>
-        <div class="rounded-2xl border border-blue-100 bg-blue-50 p-5 shadow-sm">
+        <div class="rounded-xl border border-outline bg-white p-4 shadow-sm">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-xs font-medium text-blue-600 uppercase tracking-wide">Permintaan Aktif</p>
-                    <p class="mt-2 text-3xl font-bold text-blue-700">{{ $stats['pending_requests'] }}</p>
+                    <p class="text-[10px] font-semibold uppercase tracking-wider text-secondary">Permintaan Aktif</p>
+                    <p class="mt-1.5 font-poppins text-xl font-semibold text-on-surface">{{ $stats['pending_requests'] }}</p>
                 </div>
-                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-200">
-                    <span class="material-symbols-outlined text-[22px] text-blue-700">pending_actions</span>
+                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+                    <span class="material-symbols-outlined text-[20px] text-primary">pending_actions</span>
+                </div>
+            </div>
+        </div>
+        <div class="rounded-xl border border-red-200 bg-red-50 p-4 shadow-sm">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-[10px] font-semibold uppercase tracking-wider text-red-800">Discrepancy Terbuka</p>
+                    <p class="mt-1.5 font-poppins text-xl font-semibold text-red-900">{{ $stats['open_discrepancies'] }}</p>
+                </div>
+                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-white">
+                    <span class="material-symbols-outlined text-[20px] text-red-700">report_problem</span>
                 </div>
             </div>
         </div>
     </div>
 
     {{-- Filter Toolbar --}}
-    <form method="GET" class="flex flex-wrap items-end gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+    <form method="GET" action="{{ route('inventory.transfers.index') }}" data-auto-filter class="flex flex-wrap items-end gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
         <div class="flex-1 min-w-[200px]">
             <label class="mb-1.5 block text-xs font-medium text-gray-600">Cari referensi</label>
             <div class="relative">
@@ -196,9 +231,11 @@
             <select name="status" class="rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
                 <option value="">Semua status</option>
                 <option value="in_transit" @selected(request('status') === 'in_transit')>Dalam perjalanan</option>
+                <option value="pending_approval" @selected(request('status') === 'pending_approval')>Menunggu PIC Gudang</option>
                 <option value="partially_received" @selected(request('status') === 'partially_received')>Diterima sebagian</option>
+                <option value="discrepancy_open" @selected(request('status') === 'discrepancy_open')>Discrepancy terbuka</option>
                 <option value="received" @selected(request('status') === 'received')>Diterima</option>
-                <option value="received_with_discrepancy" @selected(request('status') === 'received_with_discrepancy')>Selesai (selisih)</option>
+                <option value="received_with_discrepancy" @selected(request('status') === 'received_with_discrepancy')>Selesai (selisih diputuskan)</option>
             </select>
         </div>
         <div>
@@ -210,9 +247,6 @@
             <input type="date" name="date_to" value="{{ request('date_to') }}" class="rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
         </div>
         <div class="flex gap-2">
-            <button type="submit" class="inline-flex items-center gap-1.5 rounded-xl bg-[#DC143C] px-4 py-2 text-sm font-semibold text-white hover:bg-[#b01030] transition-colors">
-                <span class="material-symbols-outlined text-[16px]">filter_list</span> Filter
-            </button>
             <a href="{{ route('inventory.transfers.index') }}" class="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
                 <span class="material-symbols-outlined text-[16px]">close</span>
             </a>
@@ -246,7 +280,7 @@
                 <tr class="hover:bg-gray-50/50 transition-colors">
                     <td class="px-6 py-4">
                         <span class="font-semibold text-gray-800">{{ $transferRequest->reference }}</span>
-                        <p class="text-xs text-gray-400 mt-0.5">{{ $transferRequest->requested_at?->format('d M Y') ?? '—' }}</p>
+                        <p class="text-xs text-gray-400 mt-0.5">{{ $transferRequest->requested_at?->timezone('Asia/Jakarta')->format('d M Y') ?? '—' }}</p>
                     </td>
                     <td class="px-6 py-4">
                         <span class="font-medium text-gray-700">{{ $transferRequest->location->name }}</span>
@@ -310,23 +344,27 @@
                 <tr>
                     <th class="px-6 py-3">Referensi</th>
                     <th class="px-6 py-3">Dari → Ke</th>
-                    <th class="px-6 py-3">Pengirim</th>
+                    <th class="px-6 py-3">Tahap persetujuan</th>
                     <th class="px-6 py-3">Waktu Kirim</th>
                     <th class="px-6 py-3">Barang</th>
                     <th class="px-6 py-3">Status</th>
+                    @if($isPic && $canReceive)<th class="px-6 py-3">Tindakan Outlet</th>@endif
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-50">
                 @php
                     $statusMap = [
+                        'pending_approval'       => ['label' => 'Menunggu PIC Gudang', 'class' => 'bg-violet-100 text-violet-800'],
                         'in_transit'             => ['label' => 'Dalam perjalanan',   'class' => 'bg-amber-100 text-amber-800'],
                         'partially_received'     => ['label' => 'Diterima sebagian',  'class' => 'bg-blue-100 text-blue-800'],
+                        'discrepancy_open'       => ['label' => 'Discrepancy terbuka', 'class' => 'bg-red-100 text-red-800'],
                         'received'               => ['label' => 'Diterima',            'class' => 'bg-green-100 text-green-800'],
-                        'received_with_discrepancy' => ['label' => 'Selesai (selisih)', 'class' => 'bg-purple-100 text-purple-800'],
+                        'received_with_discrepancy' => ['label' => 'Selesai (selisih diputuskan)', 'class' => 'bg-purple-100 text-purple-800'],
                     ];
                 @endphp
                 @forelse($transfers as $transfer)
                 @php $st = $statusMap[$transfer->status] ?? ['label' => $transfer->status, 'class' => 'bg-gray-100 text-gray-700']; @endphp
+                @if($transfer->status === 'in_transit' && $transfer->expected_arrival_at?->isPast()) @php $st = ['label' => 'Terlambat', 'class' => 'bg-rose-100 text-rose-800']; @endphp @endif
                 <tr class="hover:bg-gray-50/50 transition-colors">
                     <td class="px-6 py-4">
                         <a href="{{ route('inventory.transfers.show', $transfer) }}" class="font-semibold text-[#DC143C] hover:underline">{{ $transfer->reference }}</a>
@@ -342,14 +380,25 @@
                     <td class="px-6 py-4">
                         <div class="flex items-center gap-2">
                             <div class="flex h-7 w-7 items-center justify-center rounded-full bg-[#DC143C]/10 text-xs font-bold text-[#DC143C]">
-                                {{ strtoupper(substr($transfer->dispatcher?->name ?? '?', 0, 1)) }}
+                                {{ strtoupper(substr($transfer->preparedBy?->name ?? $transfer->dispatcher?->name ?? '?', 0, 1)) }}
                             </div>
-                            <span class="text-gray-700">{{ $transfer->dispatcher?->name ?? '—' }}</span>
+                            <div>
+                                <span class="text-gray-700">{{ $transfer->preparedBy?->name ?? $transfer->dispatcher?->name ?? '—' }}</span>
+                                <p class="text-xs text-gray-500">Disiapkan Staff Gudang</p>
+                                @if($transfer->approver)
+                                    <p class="text-xs text-emerald-700">Disetujui PIC Gudang: {{ $transfer->approver->name }}</p>
+                                @elseif($transfer->status === 'pending_approval')
+                                    <p class="text-xs text-violet-700">Belum disetujui PIC Gudang</p>
+                                @elseif($transfer->dispatched_at)
+                                    <p class="text-xs text-emerald-700">Sudah dikirim dari gudang</p>
+                                @endif
+                            </div>
                         </div>
                     </td>
                     <td class="px-6 py-4 text-gray-500">
-                        {{ $transfer->dispatched_at->format('d M Y') }}
-                        <p class="text-xs text-gray-400">{{ $transfer->dispatched_at->format('H:i') }}</p>
+                        {{ $transfer->dispatched_at?->timezone('Asia/Jakarta')->format('d M Y') ?? 'Menunggu persetujuan' }}
+                        @if($transfer->dispatched_at)<p class="text-xs text-gray-400">{{ $transfer->dispatched_at->timezone('Asia/Jakarta')->format('H:i') }} WIB</p>@endif
+                        @if($transfer->expected_arrival_at)<p class="mt-1 text-[10px] {{ $transfer->status === 'in_transit' && $transfer->expected_arrival_at->isPast() ? 'font-semibold text-rose-700' : 'text-gray-400' }}">ETA {{ $transfer->expected_arrival_at->timezone('Asia/Jakarta')->format('d M H:i') }} WIB</p>@endif
                     </td>
                     <td class="px-6 py-4">
                         <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700">{{ $transfer->items->count() }} produk</span>
@@ -357,10 +406,21 @@
                     <td class="px-6 py-4">
                         <span class="rounded-full px-3 py-1 text-xs font-semibold {{ $st['class'] }}">{{ $st['label'] }}</span>
                     </td>
+                    @if($isPic && $canReceive)
+                    <td class="px-6 py-4">
+                        @if(in_array($transfer->status, ['in_transit', 'partially_received', 'discrepancy_open'], true))
+                            <a href="{{ route('inventory.transfers.show', $transfer) }}#receipt-form" class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-800">
+                                <span class="material-symbols-outlined text-[16px]">fact_check</span> Konfirmasi diterima
+                            </a>
+                        @else
+                            <span class="text-xs text-gray-400">Tidak perlu tindakan</span>
+                        @endif
+                    </td>
+                    @endif
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="6" class="px-6 py-10 text-center text-gray-400">
+                    <td colspan="{{ $isPic && $canReceive ? 7 : 6 }}" class="px-6 py-10 text-center text-gray-400">
                         <span class="material-symbols-outlined text-[40px] block mb-2">local_shipping</span>
                         Belum ada data transfer stok.
                     </td>

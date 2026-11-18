@@ -1,12 +1,12 @@
 @extends('layouts.dashboard')
 
-@php $pageTitle = 'Riwayat Stock In — Technolife'; @endphp
+@php $pageTitle = ($canApprove && ! $canManage ? 'Persetujuan Stock In' : 'Riwayat Stock In').' — Technolife'; @endphp
 
 {{-- ======================================================================= --}}
 {{-- MOBILE CONTENT (< lg)                                                   --}}
 {{-- ======================================================================= --}}
 @section('mobile-content')
-<main class="w-full p-4 space-y-4">
+<main class="w-full p-4 space-y-4" @if($canApprove && ! $canManage) data-pic-auto-refresh-root="mobile" @endif>
     <!-- Mobile Header -->
     <div class="flex items-center justify-between gap-3">
         <div>
@@ -14,13 +14,14 @@
                 <span class="material-symbols-outlined text-[14px]">move_to_inbox</span>
                 <span>Inbound Stock</span>
             </div>
-            <h1 class="font-poppins text-xl font-semibold text-on-surface">Penerimaan Barang</h1>
+            <h1 class="font-poppins text-xl font-semibold text-on-surface">{{ $canApprove && ! $canManage ? 'Persetujuan Stock In' : 'Penerimaan Barang' }}</h1>
             <p class="text-xs text-secondary mt-0.5">{{ $receipts->total() }} transaksi barang masuk tercatat</p>
+            @if($canApprove && ! $canManage)<p class="mt-1 text-[10px] font-medium text-emerald-700">● Pembaruan otomatis setiap 15 detik</p>@endif
         </div>
-        <a href="{{ route('inventory.stock-in.create') }}"
+        @if($canManage)<a href="{{ route('inventory.stock-in.create') }}"
            class="h-9 px-3.5 bg-primary text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 shadow-sm active:scale-95 transition-transform shrink-0">
             <span class="material-symbols-outlined text-[16px]">add</span>Catat
-        </a>
+        </a>@endif
     </div>
 
     <!-- Alert Status -->
@@ -90,7 +91,7 @@
             </div>
             <span class="material-symbols-outlined text-secondary text-[18px] transition-transform group-open:rotate-180">expand_more</span>
         </summary>
-        <form method="GET" class="p-3.5 pt-0 border-t border-outline/50 space-y-2.5">
+        <form method="GET" action="{{ route('inventory.stock-in.index') }}" data-auto-filter class="p-3.5 pt-0 border-t border-outline/50 space-y-2.5">
             <div class="relative">
                 <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-secondary">
                     <span class="material-symbols-outlined text-[18px]">search</span>
@@ -101,7 +102,7 @@
 
             <div class="grid grid-cols-2 gap-2">
                 <select name="location_id" class="h-9 bg-surface-container-lowest border border-outline rounded-xl px-2.5 text-xs text-on-surface outline-none focus:border-primary">
-                    <option value="">Semua Lokasi</option>
+                    @unless(auth()->user()->isLocationScopedUser())<option value="">Semua Lokasi</option>@endunless
                     @foreach($locations as $loc)
                         <option value="{{ $loc->id }}" @selected(($filters['location_id'] ?? '') == $loc->id)>{{ $loc->name }}</option>
                     @endforeach
@@ -126,8 +127,7 @@
                 </label>
             </div>
 
-            <div class="flex gap-2 pt-1">
-                <button type="submit" class="flex-1 h-9 bg-primary text-white text-xs font-semibold rounded-xl">Terapkan</button>
+            <div class="flex justify-end pt-1">
                 @if(array_filter($filters ?? []))
                     <a href="{{ route('inventory.stock-in.index') }}" class="h-9 px-3 border border-outline text-secondary text-xs font-semibold rounded-xl flex items-center justify-center">Reset</a>
                 @endif
@@ -143,9 +143,9 @@
             </div>
             <p class="font-semibold text-on-surface text-sm">Belum Ada Penerimaan Barang</p>
             <p class="text-xs text-secondary mt-1">Data penerimaan akan muncul setelah ada transaksi Stock In baru.</p>
-            <a href="{{ route('inventory.stock-in.create') }}" class="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-semibold rounded-xl">
+            @if($canManage)<a href="{{ route('inventory.stock-in.create') }}" class="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-semibold rounded-xl">
                 <span class="material-symbols-outlined text-[16px]">add</span>Catat Sekarang
-            </a>
+            </a>@endif
         </div>
     @else
         <div class="space-y-3">
@@ -167,10 +167,7 @@
                                 <span>{{ $receipt->received_at->format('d M Y') }}</span>
                             </div>
                         </div>
-                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-                            Tercatat
-                        </span>
+                        @include('inventory.stock-in._status-badge', ['receipt' => $receipt])
                     </div>
 
                     <!-- Meta: Source & Location -->
@@ -232,7 +229,7 @@
 {{-- DESKTOP CONTENT (>= lg)                                                 --}}
 {{-- ======================================================================= --}}
 @section('desktop-content')
-<section class="space-y-6">
+<section class="space-y-6" @if($canApprove && ! $canManage) data-pic-auto-refresh-root="desktop" @endif>
 
     <!-- Header Row -->
     <div class="flex items-center justify-between gap-4">
@@ -241,10 +238,11 @@
                 <span class="material-symbols-outlined text-[16px]">move_to_inbox</span>
                 <span>Manajemen Penerimaan Stok</span>
             </div>
-            <h1 class="font-poppins text-2xl font-semibold text-gray-900 tracking-tight">Penerimaan Barang (Stock In)</h1>
+            <h1 class="font-poppins text-2xl font-semibold text-gray-900 tracking-tight">{{ $canApprove && ! $canManage ? 'Persetujuan Stock In' : 'Penerimaan Barang (Stock In)' }}</h1>
             <p class="text-xs text-gray-500 mt-1">
-                Catatan dan riwayat dokumen penerimaan barang masuk ke gudang dari vendor, supplier, atau sumber lainnya.
+                {{ $isWarehouseStaff ? 'Penerimaan supplier dicatat melalui Purchase Order agar stok dan dokumen tetap mengikuti alur yang disetujui.' : 'Catatan dan riwayat dokumen penerimaan barang masuk ke gudang dari vendor, supplier, atau sumber lainnya.' }}
             </p>
+            @if($canApprove && ! $canManage)<p class="mt-1 text-xs font-medium text-emerald-700">● Pembaruan otomatis setiap 15 detik</p>@endif
         </div>
 
         <div class="flex items-center gap-2.5 shrink-0">
@@ -253,11 +251,17 @@
                 <span class="material-symbols-outlined text-[16px]">inventory_2</span>
                 <span>Lihat Data Stock</span>
             </a>
-            <a href="{{ route('inventory.stock-in.create') }}"
+            @if($canManage && $isWarehouseStaff)
+                <a href="{{ route('inventory.stock-in.purchase-orders') }}"
+                   class="inline-flex items-center gap-2 px-4 py-2 bg-[#DC143C] hover:bg-[#b1002c] text-white text-xs font-semibold rounded-xl shadow-xs transition-all active:scale-[0.98]">
+                    <span class="material-symbols-outlined text-[18px]">fact_check</span>
+                    <span>Validasi Penerimaan PO</span>
+                </a>
+            @elseif($canManage)<a href="{{ route('inventory.stock-in.create') }}"
                class="inline-flex items-center gap-2 px-4 py-2 bg-[#DC143C] hover:bg-[#b1002c] text-white text-xs font-semibold rounded-xl shadow-xs transition-all active:scale-[0.98]">
                 <span class="material-symbols-outlined text-[18px]">add_circle</span>
                 <span>Catat Stock In Baru</span>
-            </a>
+            </a>@endif
         </div>
     </div>
 
@@ -344,7 +348,7 @@
 
         <!-- Filter Bar -->
         <div class="p-4 border-b border-[#EAEAEA] bg-[#FDFCFB]">
-            <form method="GET" class="flex flex-wrap items-center gap-3">
+            <form method="GET" action="{{ route('inventory.stock-in.index') }}" data-auto-filter class="flex flex-wrap items-center gap-3">
                 <!-- Search Input -->
                 <div class="relative flex-1 min-w-[220px]">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
@@ -357,7 +361,7 @@
 
                 <!-- Location Filter -->
                 <select name="location_id" class="h-9 bg-white border border-[#EAEAEA] rounded-lg px-3 text-xs text-gray-700 focus:border-[#DC143C] focus:ring-1 focus:ring-[#DC143C]/20 outline-none transition-all cursor-pointer">
-                    <option value="">Semua Lokasi Gudang</option>
+                    @unless(auth()->user()->isLocationScopedUser())<option value="">Semua Lokasi Gudang</option>@endunless
                     @foreach($locations as $loc)
                         <option value="{{ $loc->id }}" @selected(($filters['location_id'] ?? '') == $loc->id)>{{ $loc->name }}</option>
                     @endforeach
@@ -383,10 +387,6 @@
                 </div>
 
                 <!-- Action Buttons -->
-                <button type="submit" class="h-9 px-4 bg-[#DC143C] hover:bg-[#b1002c] text-white text-xs font-semibold rounded-lg shadow-2xs transition-colors shrink-0">
-                    Filter
-                </button>
-
                 @if(array_filter($filters ?? []))
                     <a href="{{ route('inventory.stock-in.index') }}" class="h-9 px-3 border border-[#EAEAEA] bg-white hover:bg-gray-50 text-gray-600 text-xs font-medium rounded-lg flex items-center gap-1 transition-colors">
                         <span class="material-symbols-outlined text-[16px]">close</span>Reset
@@ -420,9 +420,9 @@
                             Reset Filter
                         </a>
                     @endif
-                    <a href="{{ route('inventory.stock-in.create') }}" class="px-3.5 py-1.5 bg-[#DC143C] text-white text-xs font-semibold rounded-lg hover:bg-[#b1002c]">
+                    @if($canManage)<a href="{{ route('inventory.stock-in.create') }}" class="px-3.5 py-1.5 bg-[#DC143C] text-white text-xs font-semibold rounded-lg hover:bg-[#b1002c]">
                         + Catat Stock In
-                    </a>
+                    </a>@endif
                 </div>
             </div>
         @else
@@ -529,10 +529,7 @@
 
                                 <!-- Status -->
                                 <td class="py-3.5 px-4 text-center whitespace-nowrap">
-                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-semibold">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-                                        Tercatat
-                                    </span>
+                                    @include('inventory.stock-in._status-badge', ['receipt' => $receipt])
                                 </td>
 
                                 <!-- Aksi -->
@@ -561,3 +558,44 @@
 
 </section>
 @endsection
+
+@if($canApprove && ! $canManage)
+<script>
+    (() => {
+        let refreshing = false;
+
+        async function refreshPicReceipts() {
+            const active = document.activeElement;
+            if (document.hidden || refreshing || document.querySelector('details[open]')
+                || active?.matches('input, select, textarea, button')) return;
+
+            refreshing = true;
+            const scrollY = window.scrollY;
+
+            try {
+                const response = await fetch(window.location.href, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin',
+                });
+                if (!response.ok) return;
+
+                const refreshedPage = new DOMParser().parseFromString(await response.text(), 'text/html');
+                for (const layout of ['mobile', 'desktop']) {
+                    const current = document.querySelector(`[data-pic-auto-refresh-root="${layout}"]`);
+                    const updated = refreshedPage.querySelector(`[data-pic-auto-refresh-root="${layout}"]`);
+                    if (!current || !updated) return;
+                    current.innerHTML = updated.innerHTML;
+                }
+
+                window.scrollTo({ top: scrollY, behavior: 'auto' });
+            } catch (error) {
+                console.warn('Pembaruan daftar Stock In gagal; akan dicoba kembali.', error);
+            } finally {
+                refreshing = false;
+            }
+        }
+
+        window.setInterval(refreshPicReceipts, 15000);
+    })();
+</script>
+@endif

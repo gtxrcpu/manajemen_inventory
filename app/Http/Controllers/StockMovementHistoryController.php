@@ -36,10 +36,19 @@ class StockMovementHistoryController extends Controller
         ])->addSelect(['before_quantity' => $before, 'after_quantity' => $after]);
 
         $user = $request->user();
-        $locationId = $user->hasRole('pic_outlet')
-            ? $user->location_id
-            : ($request->filled('location_id') ? $request->integer('location_id') : $request->session()->get('selected_location_id'));
-        if ($locationId) $query->where('location_id', $locationId);
+        if ($user->isLocationScopedUser()) {
+            $locationIds = $user->assignedLocationIds();
+            abort_unless($locationIds, 403, 'Akun operasional belum memiliki lokasi aktif yang ditugaskan.');
+            if ($request->filled('location_id')) {
+                abort_unless(in_array($request->integer('location_id'), $locationIds, true), 403);
+                $query->where('location_id', $request->integer('location_id'));
+            } else {
+                $query->whereIn('location_id', $locationIds);
+            }
+        } else {
+            $locationId = $request->filled('location_id') ? $request->integer('location_id') : $request->session()->get('selected_location_id');
+            if ($locationId) $query->where('location_id', $locationId);
+        }
 
         if ($request->filled('product_id')) $query->where('product_id', $request->integer('product_id'));
         if ($request->filled('user_id')) $query->where('user_id', $request->integer('user_id'));
@@ -71,14 +80,18 @@ class StockMovementHistoryController extends Controller
         return view('inventory.stock-movements.index', [
             'movements' => $this->query($request)->orderByDesc('id')->paginate(20)->withQueryString(),
             'products' => Product::orderBy('name')->get(['id', 'name', 'sku']),
-            'locations' => Location::orderBy('name')->get(['id', 'name']),
+            'locations' => Location::orderBy('name')->when($request->user()->isLocationScopedUser(), fn ($query) => $query->whereIn('id', $request->user()->assignedLocationIds()))->get(['id', 'name']),
             'users' => User::orderBy('name')->get(['id', 'name']),
             'filters' => $request->only(['product_id', 'location_id', 'user_id', 'type', 'date_from', 'date_to', 'reference']),
         ]);
     }
 
-    public function show(StockMovement $stockMovement): View
+    public function show(Request $request, StockMovement $stockMovement): View
     {
+        $user = $request->user();
+        if ($user->isLocationScopedUser()) {
+            abort_unless(in_array((int) $stockMovement->location_id, $user->assignedLocationIds(), true), 403);
+        }
         $movement = StockMovement::with(['product.unit', 'location', 'user', 'batch.stockIn', 'stockInItem.stockIn', 'stockOutItem.stockOut', 'stockOpnameItem.opname', 'stockAdjustment'])
             ->addSelect([
                 'before_quantity' => DB::table('stock_movements as prior')->selectRaw("COALESCE(SUM(CASE WHEN prior.type = 'in' THEN prior.quantity ELSE -prior.quantity END), 0)")

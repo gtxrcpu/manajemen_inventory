@@ -1,0 +1,15 @@
+WhatsApp client initialization failed: Waiting failed: 30000ms exceeded
+WhatsApp Web error: The Content Security Policy directive 'upgrade-insecure-requests' is ignored when delivered in a report-only policy.
+WhatsApp Web error: Failed to load resource: the server responded with a status of 400 ()
+WhatsApp Web network request failed: media-cgk2-2.cdn.whatsapp.net/mms/md-msg-hist/6NRsOvFq077sef0yrawR3yNjCb2xIZm982oZVDXrCjc= net::ERR_ABORTED
+WhatsApp Web network request failed: media-cgk2-2.cdn.whatsapp.net/mms/md-msg-hist/uVQptCEMkrE8RwIApg7C0QOOM_MOOKKTAp3EgcN3dHY= net::ERR_ABORTED
+WhatsApp Web network request failed: media-cgk2-2.cdn.whatsapp.net/mms/md-msg-hist/Ooeskwl9b09ezPbzDi_c6Gu_K1lKNgWZH7gIN6nzM_4= net::ERR_ABORTED
+WhatsApp Web network request failed: media-cgk2-2.cdn.whatsapp.net/mms/md-msg-hist/FT4Ujvz0TCEijhjcXwIAGw1JJXrcBKejiHmkdyxa5OE= net::ERR_ABORTED
+WhatsApp Web network request failed: media-cgk2-2.cdn.whatsapp.net/mms/md-msg-hist/3YassfyAq6R4tMT_QrF_3LyuFSYsAoGuma0DWMQo9Lc= net::ERR_ABORTED
+WhatsApp Web network request failed: media-cgk2-2.cdn.whatsapp.net/mms/md-msg-hist/druxqaPatkmDY49JMf_zl_nXLjq9tPMLR_YHUnOGDhc= net::ERR_ABORTED
+WhatsApp Web network request failed: media-cgk2-2.cdn.whatsapp.net/mms/md-msg-hist/NeYiySfRDxlGVu3FeWnFPuQkgH68vG-MHm4h5XSJDz4= net::ERR_ABORTED
+WhatsApp Web network request failed: media-cgk2-2.cdn.whatsapp.net/mms/md-msg-hist/I5QaU4YUTHCBzeSFo9I4_6zID462UUBq1XbAPzz4il0= net::ERR_ABORTED
+WhatsApp Web network request failed: media-cgk2-2.cdn.whatsapp.net/mms/md-msg-hist/Jir_EX7bVD7UvFDDAMmV9WpweLDWBz5Ceq5ymtLRcsU= net::ERR_ABORTED
+WhatsApp Web network request failed: media-cgk2-2.cdn.whatsapp.net/mms/md-msg-hist/ZUkDjU2VE_SCnT1S6RX-6mp3vstrN2_10DtK2wa2etE= net::ERR_ABORTED
+WhatsApp Web network request failed: media-cgk2-2.cdn.whatsapp.net/mms/md-msg-hist/anqyyNBLkMYdy5M7mJ_dJNJFGcxLLCGn8q2zAX1EJqg= net::ERR_ABORTED
+WhatsApp Web network request failed: media-cgk2-2.cdn.whatsapp.net/mms/md-msg-hist/Hv08pGidhc-5eTBJDBConuIot4SHXgRQIwfuxCyPH34= net::ERR_ABORTED

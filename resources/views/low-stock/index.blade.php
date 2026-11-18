@@ -197,7 +197,7 @@
                 </div>
             </div>
             <p class="text-[10px] text-gray-500 uppercase font-medium tracking-wider">Alert Teratasi</p>
-            <p class="text-2xl font-semibold text-gray-900 font-poppins mt-1">{{ $history->where('resolved_at', '!=', null)->count() }}</p>
+            <p class="text-2xl font-semibold text-gray-900 font-poppins mt-1">{{ $resolvedAlertCount }}</p>
             <p class="text-xs text-gray-500 mt-1">Stok sudah kembali aman</p>
         </div>
 
@@ -213,162 +213,51 @@
         </div>
     </div>
 
-    <!-- Active Alerts Table -->
-    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white">
-        <div class="border-b border-gray-200 p-5 flex items-center justify-between">
-            <div>
-                <div class="flex items-center gap-2">
-                    <span class="material-symbols-outlined text-red-600 text-[22px]">priority_high</span>
-                    <h2 class="font-semibold text-gray-900">Perlu restock</h2>
+    <!-- Active Alerts -->
+    <section class="space-y-3">
+        <div class="flex items-end justify-between gap-3">
+            <div><h2 class="font-semibold text-gray-900">Perlu restock</h2><p class="mt-1 text-xs text-gray-500">{{ number_format($activeAlerts->total(), 0, ',', '.') }} alert aktif</p></div>
+        </div>
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+        @forelse($activeAlerts as $alert)
+            @php($stockProgress = $alert->minimum_quantity > 0 ? min(100, max(0, ((float) $alert->stock_quantity / (float) $alert->minimum_quantity) * 100)) : 0)
+            <article class="rounded-xl border border-gray-200 bg-white p-4">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0"><h3 class="truncate font-semibold text-gray-900">{{ $alert->product->name }}</h3><p class="mt-1 text-xs text-gray-500">{{ $alert->product->sku }}</p></div>
+                    <span class="shrink-0 rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-700">Stok rendah</span>
                 </div>
-                <p class="mt-1 text-xs text-gray-500 flex items-center gap-1.5">
-                    <span>{{ number_format($activeAlerts->total(), 0, ',', '.') }} alert aktif membutuhkan perhatian</span>
-                </p>
-            </div>
+                <p class="mt-3 flex items-center gap-1.5 text-sm text-gray-600"><span class="material-symbols-outlined text-base text-gray-400">location_on</span>{{ $alert->location->name }}</p>
+                <div class="mt-4 grid grid-cols-2 gap-3 rounded-lg bg-gray-50 p-3">
+                    <div><p class="text-xs text-gray-500">Saldo saat ini</p><p class="mt-1 font-semibold tabular-nums text-red-700">{{ \App\Support\QuantityFormatter::format($alert->stock_quantity) }} <span class="text-xs font-medium uppercase">{{ $alert->product->unit->symbol }}</span></p></div>
+                    <div><p class="text-xs text-gray-500">Batas minimum</p><p class="mt-1 font-semibold tabular-nums text-gray-900">{{ \App\Support\QuantityFormatter::format($alert->minimum_quantity) }} <span class="text-xs font-medium uppercase">{{ $alert->product->unit->symbol }}</span></p></div>
+                </div>
+                <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-100"><div class="h-full rounded-full bg-red-500" style="width: {{ $stockProgress }}%"></div></div>
+                <p class="mt-2 text-[11px] text-gray-500">Alert dimulai {{ $alert->triggered_at->format('d M Y, H:i') }}</p>
+            </article>
+        @empty
+            <div class="col-span-full rounded-xl border border-gray-200 bg-white p-8 text-center"><span class="material-symbols-outlined text-2xl text-green-600">check_circle</span><p class="mt-2 text-sm font-semibold text-gray-900">Semua stok aman</p><p class="mt-1 text-xs text-gray-500">Tidak ada produk di bawah batas minimum.</p></div>
+        @endforelse
         </div>
+        {{ $activeAlerts->links() }}
+    </section>
 
-        <div class="overflow-x-auto">
-            <table class="w-full min-w-[760px] text-left text-sm">
-                <thead class="bg-gray-50 text-xs uppercase text-gray-500 border-b border-gray-200">
-                    <tr>
-                        <th class="p-4 font-semibold">Produk</th>
-                        <th class="p-4 font-semibold">Lokasi</th>
-                        <th class="p-4 font-semibold text-right">Saldo Saat Ini</th>
-                        <th class="p-4 font-semibold text-right">Batas Minimum</th>
-                        <th class="p-4 font-semibold">Mulai Alert</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100">
-                    @forelse($activeAlerts as $alert)
-                    <tr class="hover:bg-red-50/30 transition-colors">
-                        <td class="p-4">
-                            <p class="font-semibold text-gray-900">{{ $alert->product->name }}</p>
-                            <p class="text-xs text-gray-500 mt-0.5">{{ $alert->product->sku }}</p>
-                        </td>
-                        <td class="p-4">
-                            <div class="flex items-center gap-1.5">
-                                <span class="material-symbols-outlined text-gray-400 text-[16px]">location_on</span>
-                                <span class="text-gray-700">{{ $alert->location->name }}</span>
-                            </div>
-                        </td>
-                        <td class="p-4 text-right">
-                            <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50">
-                                <span class="material-symbols-outlined text-red-600 text-[16px]">warning</span>
-                                <span class="font-semibold text-red-700">{{ \App\Support\QuantityFormatter::format($alert->stock_quantity) }}</span>
-                                <span class="text-xs text-red-600 uppercase">{{ $alert->product->unit->symbol }}</span>
-                            </div>
-                        </td>
-                        <td class="p-4 text-right">
-                            <span class="font-medium text-gray-900">{{ \App\Support\QuantityFormatter::format($alert->minimum_quantity) }}</span>
-                            <span class="text-xs text-gray-500 uppercase ml-1">{{ $alert->product->unit->symbol }}</span>
-                        </td>
-                        <td class="p-4">
-                            <div class="flex items-center gap-1.5 text-gray-600">
-                                <span class="material-symbols-outlined text-[16px]">schedule</span>
-                                <span>{{ $alert->triggered_at->format('d M Y H:i') }}</span>
-                            </div>
-                        </td>
-                    </tr>
-                    @empty
-                    <tr>
-                        <td colspan="5" class="p-12 text-center">
-                            <div class="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
-                                <span class="material-symbols-outlined text-green-600 text-[32px]">check_circle</span>
-                            </div>
-                            <p class="font-medium text-gray-900 mb-1">Semua stok aman</p>
-                            <p class="text-sm text-gray-500">Tidak ada produk di bawah batas minimum</p>
-                        </td>
-                    </tr>
-                    @endforelse
-                </tbody>
-            </table>
+    <!-- Alert History -->
+    <section class="mt-7 space-y-3">
+        <div><h2 class="font-semibold text-gray-900">Riwayat alert</h2><p class="mt-1 text-xs text-gray-500">{{ number_format($history->total(), 0, ',', '.') }} catatan · alert tetap tersimpan setelah stok pulih</p></div>
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+        @forelse($history as $alert)
+            <article class="rounded-xl border border-gray-200 bg-white p-4">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0"><h3 class="truncate font-semibold text-gray-900">{{ $alert->product->name }}</h3><p class="mt-1 text-xs text-gray-500">{{ $alert->product->sku }} · {{ $alert->location->name }}</p></div>
+                    <span class="shrink-0 rounded-md px-2 py-1 text-xs font-medium {{ $alert->resolved_at ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700' }}">{{ $alert->resolved_at ? 'Pulih' : 'Aktif' }}</span>
+                </div>
+                <div class="mt-3 flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2.5 text-sm"><span class="text-gray-500">Saldo / minimum</span><span class="font-semibold tabular-nums text-gray-900">{{ \App\Support\QuantityFormatter::format($alert->stock_quantity) }} / {{ \App\Support\QuantityFormatter::format($alert->minimum_quantity) }} <span class="text-xs uppercase">{{ $alert->product->unit->symbol }}</span></span></div>
+                <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-gray-500"><span>Mulai {{ $alert->triggered_at->format('d M Y, H:i') }}</span>@if($alert->resolved_at)<span class="text-green-700">Pulih {{ $alert->resolved_at->format('d M Y, H:i') }}</span>@endif</div>
+            </article>
+        @empty
+            <div class="col-span-full rounded-xl border border-gray-200 bg-white p-8 text-center"><span class="material-symbols-outlined text-2xl text-gray-400">history</span><p class="mt-2 text-sm text-gray-600">Riwayat alert masih kosong.</p></div>
+        @endforelse
         </div>
-
-        <div class="border-t border-gray-200 px-5 py-4">
-            {{ $activeAlerts->links() }}
-        </div>
-    </div>
-
-    <!-- History Table -->
-    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white">
-        <div class="border-b border-gray-200 p-5">
-            <div class="flex items-center gap-2">
-                <span class="material-symbols-outlined text-gray-600 text-[22px]">history</span>
-                <h2 class="font-semibold text-gray-900">Riwayat alert</h2>
-            </div>
-            <p class="mt-1 text-xs text-gray-500">Alert yang pulih tetap disimpan sebagai riwayat.</p>
-        </div>
-
-        <div class="overflow-x-auto">
-            <table class="w-full min-w-[850px] text-left text-sm">
-                <thead class="bg-gray-50 text-xs uppercase text-gray-500 border-b border-gray-200">
-                    <tr>
-                        <th class="p-4 font-semibold">Produk</th>
-                        <th class="p-4 font-semibold">Lokasi</th>
-                        <th class="p-4 font-semibold">Saldo / Minimum</th>
-                        <th class="p-4 font-semibold">Mulai</th>
-                        <th class="p-4 font-semibold">Pulih</th>
-                        <th class="p-4 font-semibold">Status</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100">
-                    @forelse($history as $alert)
-                    <tr class="hover:bg-gray-50 transition-colors">
-                        <td class="p-4">
-                            <p class="font-semibold text-gray-900">{{ $alert->product->name }}</p>
-                            <p class="text-xs text-gray-500 mt-0.5">{{ $alert->product->sku }}</p>
-                        </td>
-                        <td class="p-4">
-                            <div class="flex items-center gap-1.5">
-                                <span class="material-symbols-outlined text-gray-400 text-[16px]">location_on</span>
-                                <span class="text-gray-700">{{ $alert->location->name }}</span>
-                            </div>
-                        </td>
-                        <td class="p-4">
-                            <span class="font-medium text-gray-900">{{ \App\Support\QuantityFormatter::format($alert->stock_quantity) }}</span>
-                            <span class="text-gray-500"> / </span>
-                            <span class="font-medium text-gray-900">{{ \App\Support\QuantityFormatter::format($alert->minimum_quantity) }}</span>
-                            <span class="text-xs text-gray-500 uppercase ml-1">{{ $alert->product->unit->symbol }}</span>
-                        </td>
-                        <td class="p-4">
-                            <div class="flex items-center gap-1.5 text-gray-600">
-                                <span class="material-symbols-outlined text-[16px]">schedule</span>
-                                <span>{{ $alert->triggered_at->format('d M Y H:i') }}</span>
-                            </div>
-                        </td>
-                        <td class="p-4">
-                            @if($alert->resolved_at)
-                            <div class="flex items-center gap-1.5 text-green-600">
-                                <span class="material-symbols-outlined text-[16px]">check_circle</span>
-                                <span>{{ $alert->resolved_at->format('d M Y H:i') }}</span>
-                            </div>
-                            @else
-                            <span class="text-gray-400">—</span>
-                            @endif
-                        </td>
-                        <td class="p-4">
-                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide {{ $alert->resolved_at ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
-                                {{ $alert->resolved_at ? 'Aman' : 'Aktif' }}
-                            </span>
-                        </td>
-                    </tr>
-                    @empty
-                    <tr>
-                        <td colspan="6" class="p-12 text-center">
-                            <div class="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
-                                <span class="material-symbols-outlined text-gray-400 text-[32px]">history</span>
-                            </div>
-                            <p class="text-gray-500">Riwayat alert masih kosong.</p>
-                        </td>
-                    </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-
-        <div class="border-t border-gray-200 px-5 py-4">
-            {{ $history->links() }}
-        </div>
-    </div>
-</section>
+        {{ $history->links() }}
+    </section></section>
 @endsection

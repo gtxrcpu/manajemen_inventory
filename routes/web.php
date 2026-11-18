@@ -13,13 +13,18 @@ use App\Http\Controllers\StockOutController;
 use App\Http\Controllers\StockTransferController;
 use App\Http\Controllers\StockOpnameController;
 use App\Http\Controllers\StockAdjustmentController;
+use App\Http\Controllers\StockDisposalController;
 use App\Http\Controllers\StockMovementHistoryController;
 use App\Http\Controllers\TransactionHistoryController;
 use App\Http\Controllers\PurchasingController;
+use App\Http\Controllers\PurchaseInvoiceController;
 use App\Http\Controllers\ApprovalController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\LowStockController;
 use App\Http\Controllers\Admin\WhatsAppAlertController;
+use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\PicSubstituteAssignmentController;
+use App\Http\Controllers\Admin\SystemSettingsController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -41,7 +46,7 @@ Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
     ->middleware('auth')
     ->name('logout');
 
-Route::middleware(['auth', 'permission:app.access'])->group(function () {
+Route::middleware(['auth', 'permission:app.access', 'private.nocache', 'location.context'])->group(function () {
     Route::get('/account', function () {
         return view('auth.account');
     })->name('account');
@@ -79,11 +84,15 @@ Route::middleware(['auth', 'permission:app.access'])->group(function () {
         Route::get('/', [StockTransferController::class, 'index'])->name('index');
         Route::get('/create', [StockTransferController::class, 'create'])->name('create');
         Route::post('/', [StockTransferController::class, 'store'])->name('store');
+        Route::post('/{stockTransfer}/approve', [StockTransferController::class, 'approve'])->whereNumber('stockTransfer')->name('approve');
+        Route::post('/{stockTransfer}/eta', [StockTransferController::class, 'updateEta'])->whereNumber('stockTransfer')->name('eta');
         Route::get('/requests/create', [StockTransferController::class, 'createRequest'])->name('requests.create');
         Route::post('/requests', [StockTransferController::class, 'storeRequest'])->name('requests.store');
         Route::patch('/requests/{stockTransferRequest}/pick', [StockTransferController::class, 'storePick'])->whereNumber('stockTransferRequest')->name('requests.pick');
         Route::get('/{stockTransfer}', [StockTransferController::class, 'show'])->whereNumber('stockTransfer')->name('show');
         Route::post('/{stockTransfer}/receive', [StockTransferController::class, 'receive'])->whereNumber('stockTransfer')->name('receive');
+        Route::post('/{stockTransfer}/discrepancies/{transferItem}/resolve', [StockTransferController::class, 'resolveDiscrepancy'])
+            ->middleware('permission:transfer.resolve_discrepancy')->whereNumber('stockTransfer')->whereNumber('transferItem')->name('discrepancies.resolve');
     });
     Route::get('/approvals', [ApprovalController::class, 'index'])->name('approvals.index');
     Route::prefix('purchasing')->name('purchasing.')->group(function () {
@@ -91,18 +100,40 @@ Route::middleware(['auth', 'permission:app.access'])->group(function () {
         Route::get('/requests/create', [PurchasingController::class, 'createRequest'])->name('requests.create');
         Route::post('/requests', [PurchasingController::class, 'storeRequest'])->name('requests.store');
         Route::get('/requests/{purchaseRequest}', [PurchasingController::class, 'showRequest'])->whereNumber('purchaseRequest')->name('requests.show');
-        Route::patch('/requests/{purchaseRequest}/review', [PurchasingController::class, 'reviewRequest'])->whereNumber('purchaseRequest')->name('requests.review');
         Route::get('/requests/{purchaseRequest}/order/create', [PurchasingController::class, 'createOrder'])->whereNumber('purchaseRequest')->name('orders.create');
         Route::post('/requests/{purchaseRequest}/order', [PurchasingController::class, 'storeOrder'])->whereNumber('purchaseRequest')->name('orders.store');
         Route::get('/orders/{purchaseOrder}', [PurchasingController::class, 'showOrder'])->whereNumber('purchaseOrder')->name('orders.show');
+        Route::post('/orders/{purchaseOrder}/supplier-follow-up', [PurchasingController::class, 'recordSupplierFollowUp'])->middleware('permission:purchasing.manage')->whereNumber('purchaseOrder')->name('orders.supplier-follow-up');
         Route::post('/orders/{purchaseOrder}/receive', [PurchasingController::class, 'receiveOrder'])->whereNumber('purchaseOrder')->name('orders.receive');
     });
+    Route::prefix('purchase-invoices')->name('purchase-invoices.')->group(function () {
+        Route::get('/', [PurchaseInvoiceController::class, 'index'])->name('index');
+        Route::get('/create', [PurchaseInvoiceController::class, 'create'])->name('create');
+        Route::post('/', [PurchaseInvoiceController::class, 'store'])->name('store');
+        Route::get('/{purchaseInvoice}', [PurchaseInvoiceController::class, 'show'])->whereNumber('purchaseInvoice')->name('show');
+        Route::get('/{purchaseInvoice}/edit', [PurchaseInvoiceController::class, 'edit'])->whereNumber('purchaseInvoice')->name('edit');
+        Route::put('/{purchaseInvoice}', [PurchaseInvoiceController::class, 'update'])->whereNumber('purchaseInvoice')->name('update');
+        Route::post('/{purchaseInvoice}/submit', [PurchaseInvoiceController::class, 'submit'])->whereNumber('purchaseInvoice')->name('submit');
+        Route::post('/{purchaseInvoice}/review', [PurchaseInvoiceController::class, 'review'])->whereNumber('purchaseInvoice')->name('review');
+        Route::post('/{purchaseInvoice}/payments', [PurchaseInvoiceController::class, 'recordPayment'])->whereNumber('purchaseInvoice')->name('payments.store');
+        Route::post('/{purchaseInvoice}/payments/{payment}/reverse', [PurchaseInvoiceController::class, 'reversePayment'])->whereNumber('purchaseInvoice')->whereNumber('payment')->name('payments.reverse');
+        Route::post('/{purchaseInvoice}/link-receipts', [PurchaseInvoiceController::class, 'linkReceipts'])->whereNumber('purchaseInvoice')->name('receipts.link');
+        Route::get('/{purchaseInvoice}/document', [PurchaseInvoiceController::class, 'document'])->whereNumber('purchaseInvoice')->name('document');
+    });
+    Route::get('/finance/valuation', [PurchaseInvoiceController::class, 'valuation'])->name('finance.valuation');
+    Route::get('/finance/valuation/export', [PurchaseInvoiceController::class, 'exportValuation'])->name('finance.valuation.export');
     Route::get('/dashboard/stock-live', [DashboardController::class, 'stockLive'])->name('dashboard.stock-live');
+    Route::get('/stock-in', [StockInController::class, 'index'])->name('inventory.stock-in.index');
+    Route::get('/stock-in/purchase-orders', [PurchasingController::class, 'receivingOrders'])->name('inventory.stock-in.purchase-orders');
+    Route::get('/stock-in/{stockIn}/evidence/{evidence}', [StockInController::class, 'evidence'])->whereNumber('stockIn')->whereNumber('evidence')->name('inventory.stock-in.evidence');
+    Route::get('/stock-in/{stockIn}', [StockInController::class, 'show'])->whereNumber('stockIn')->name('inventory.stock-in.show');
+    Route::middleware('permission:stock-in.approve')->group(function () {
+        Route::post('/stock-in/{stockIn}/approve', [StockInController::class, 'approve'])->whereNumber('stockIn')->name('inventory.stock-in.approve');
+        Route::post('/stock-in/{stockIn}/reject', [StockInController::class, 'reject'])->whereNumber('stockIn')->name('inventory.stock-in.reject');
+    });
     Route::middleware('permission:stock.manage')->group(function () {
-        Route::get('/stock-in', [StockInController::class, 'index'])->name('inventory.stock-in.index');
         Route::get('/stock-in/create', [StockInController::class, 'create'])->name('inventory.stock-in.create');
         Route::post('/stock-in', [StockInController::class, 'store'])->name('inventory.stock-in.store');
-        Route::get('/stock-in/{stockIn}', [StockInController::class, 'show'])->whereNumber('stockIn')->name('inventory.stock-in.show');
         Route::get('/stock-out', [StockOutController::class, 'index'])->name('inventory.stock-out.index');
         Route::get('/stock-out/create', [StockOutController::class, 'create'])->name('inventory.stock-out.create');
         Route::post('/stock-out', [StockOutController::class, 'store'])->name('inventory.stock-out.store');
@@ -113,6 +144,7 @@ Route::middleware(['auth', 'permission:app.access'])->group(function () {
     Route::post('/stock-opname', [StockOpnameController::class, 'start'])->middleware('permission:opname.manage')->name('inventory.stock-opname.start');
     Route::get('/stock-opname/{stockOpname}', [StockOpnameController::class, 'show'])->whereNumber('stockOpname')->name('inventory.stock-opname.show');
     Route::post('/stock-opname/{stockOpname}/submit', [StockOpnameController::class, 'submit'])->middleware('permission:opname.manage')->whereNumber('stockOpname')->name('inventory.stock-opname.submit');
+    Route::post('/stock-opname/{stockOpname}/cancel', [StockOpnameController::class, 'cancel'])->middleware('permission:opname.manage')->whereNumber('stockOpname')->name('inventory.stock-opname.cancel');
     Route::post('/stock-opname/{stockOpname}/approve', [StockOpnameController::class, 'approve'])->middleware('permission:opname.approve')->whereNumber('stockOpname')->name('inventory.stock-opname.approve');
     Route::post('/stock-opname/{stockOpname}/reject', [StockOpnameController::class, 'reject'])->middleware('permission:opname.approve')->whereNumber('stockOpname')->name('inventory.stock-opname.reject');
     Route::prefix('stock-adjustments')->name('inventory.stock-adjustments.')->middleware('permission:adjust.manage')->group(function () {
@@ -121,10 +153,23 @@ Route::middleware(['auth', 'permission:app.access'])->group(function () {
         Route::post('/', [StockAdjustmentController::class, 'store'])->name('store');
         Route::get('/{stockAdjustment}', [StockAdjustmentController::class, 'show'])->whereNumber('stockAdjustment')->name('show');
     });
+    Route::prefix('stock-disposals')->name('inventory.stock-disposals.')->group(function () {
+        Route::get('/', [StockDisposalController::class, 'index'])->name('index');
+        Route::get('/create', [StockDisposalController::class, 'create'])->name('create');
+        Route::post('/', [StockDisposalController::class, 'store'])->name('store');
+        Route::get('/{stockDisposal}', [StockDisposalController::class, 'show'])->whereNumber('stockDisposal')->name('show');
+        Route::post('/{stockDisposal}/approve', [StockDisposalController::class, 'approve'])->whereNumber('stockDisposal')->name('approve');
+        Route::post('/{stockDisposal}/reject', [StockDisposalController::class, 'reject'])->whereNumber('stockDisposal')->name('reject');
+        Route::post('/{stockDisposal}/supplier-resolution', [StockDisposalController::class, 'resolveSupplier'])->middleware('permission:disposal.resolve')->whereNumber('stockDisposal')->name('supplier-resolution');
+    });
 });
 
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'permission:users.manage'])->group(function () {
+    Route::get('/audit', [AuditLogController::class, 'index'])->name('audit.index');
+    Route::get('/settings', [SystemSettingsController::class, 'index'])->name('settings.index');
     Route::prefix('master-data')->name('master-data.')->group(function () {
+        Route::post('/products/import', [MasterDataController::class, 'importProducts'])->name('products.import');
+        Route::post('/categories/import', [MasterDataController::class, 'importCategories'])->name('categories.import');
         Route::get('/{resource}', [MasterDataController::class, 'index'])->name('index');
         Route::get('/{resource}/create', [MasterDataController::class, 'create'])->name('create');
         Route::post('/{resource}', [MasterDataController::class, 'store'])->name('store');
@@ -141,6 +186,11 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'permission:users.ma
     Route::patch('/users/{user}/status', [UserController::class, 'toggleStatus'])->name('users.status');
     Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
     Route::patch('/users/{user}/restore', [UserController::class, 'restore'])->name('users.restore');
+
+    Route::get('/pic-substitutes', [PicSubstituteAssignmentController::class, 'index'])->name('pic-substitutes.index');
+    Route::get('/pic-substitutes/create', [PicSubstituteAssignmentController::class, 'create'])->name('pic-substitutes.create');
+    Route::post('/pic-substitutes', [PicSubstituteAssignmentController::class, 'store'])->name('pic-substitutes.store');
+    Route::post('/pic-substitutes/{assignment}/revoke', [PicSubstituteAssignmentController::class, 'revoke'])->whereNumber('assignment')->name('pic-substitutes.revoke');
 
     Route::get('/roles', [RolePermissionController::class, 'index'])->name('roles.index');
     Route::patch('/roles/{role}/permissions', [RolePermissionController::class, 'update'])

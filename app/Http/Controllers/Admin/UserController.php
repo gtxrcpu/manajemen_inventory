@@ -49,9 +49,9 @@ class UserController extends Controller
     public function create(): View
     {
         $roles = Role::orderBy('label')->get();
-        $outlets = Location::where('type', Location::TYPE_OUTLET)->where('is_active', true)->orderBy('name')->get();
+        $locations = Location::whereIn('type', [Location::TYPE_OUTLET, Location::TYPE_WAREHOUSE])->where('is_active', true)->orderBy('type')->orderBy('name')->get();
 
-        return view('admin.users.create', compact('roles', 'outlets'));
+        return view('admin.users.create', compact('roles', 'locations'));
     }
 
     public function store(StoreUserRequest $request): RedirectResponse
@@ -65,9 +65,9 @@ class UserController extends Controller
     {
         $user->load('roles');
         $roles = Role::orderBy('label')->get();
-        $outlets = Location::where('type', Location::TYPE_OUTLET)->where('is_active', true)->orderBy('name')->get();
+        $locations = Location::whereIn('type', [Location::TYPE_OUTLET, Location::TYPE_WAREHOUSE])->where('is_active', true)->orderBy('type')->orderBy('name')->get();
 
-        return view('admin.users.edit', compact('user', 'roles', 'outlets'));
+        return view('admin.users.edit', compact('user', 'roles', 'locations'));
     }
 
     public function update(UpdateUserRequest $request, User $user): RedirectResponse

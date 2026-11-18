@@ -702,7 +702,7 @@ Data Stock
 
 # FEATURE 06 — STOCK IN
 
-**Status:** Done (MVP; batch/expiry and receiving rules remain follow-up)  
+**Status:** Done (MVP; outlet PIC approval implemented; batch/expiry rules remain follow-up)
 **Priority:** Critical
 
 
@@ -730,6 +730,8 @@ Mencatat barang yang masuk ke warehouse/location dan menambah saldo inventory.
 - [ ] Expiry jika diperlukan
 - [x] Notes
 - [x] Confirmation
+- [x] Approval status, outlet destination, and rejection reason in receipt history
+- [x] PIC approval and rejection actions on receipt detail
 
 ## Workflow
 
@@ -746,11 +748,8 @@ Validate
    ↓
 Confirm
    ↓
-Increase stock
-   ↓
-Create movement
-   ↓
-Audit
+Warehouse destination → increase stock → create movement → audit
+Outlet destination → pending PIC approval → approve: increase stock / reject: keep stock unchanged → audit decision
 ```
 
 ## Backend / Implementation
@@ -760,10 +759,16 @@ Audit
 - [x] Stock balance updated through ledger
 - [x] Stock movement creation
 - [x] Audit event
+- [x] Outlet Stock In remains outside stock ledger until assigned PIC approval
+- [x] Approval/rejection is atomic, status-locked, and decision audited
+- [x] Unique movement link prevents duplicate stock posting for one receipt line
+- [x] PIC list/detail and decision actions are scoped to the assigned outlet
+- [x] Staff can see decision status and rejection reason; rejected records stay immutable
 - [x] Responsive list, create, confirmation, and detail pages
 - [x] Super Admin and Staff Gudang access via `stock.manage`
+- [x] PIC Outlet approval access via `stock-in.approve`
 
-**Implementation assumptions:** Receipt is confirmed immediately on submission; reference is unique; supplier selection is optional when a source is provided; each product uses its configured master unit; batch and expiry are not required until their rules are confirmed. Super Admin can record receipts for administration/testing, and Staff Gudang can record them as part of the confirmed jobdesk.
+**Implementation assumptions:** Warehouse Stock In is confirmed immediately. Direct Stock In to an outlet stays pending until its assigned PIC approves it; rejection requires a reason and does not change stock. Existing transfer receipts remain confirmed by PIC physical receipt and do not enter a second approval step. PIC assignment uses the existing single `users.location_id` outlet relation; multi-outlet PIC assignment remains `[FOLLOW-UP]`. Reference is unique; supplier selection is optional when a source is provided; each product uses its configured master unit; batch and expiry are not required until their rules are confirmed. Super Admin can record receipts for administration/testing and approve across locations under existing administrative authority.
 
 **Files added/updated (2026-10-08):** `app/Http/Controllers/StockInController.php`, `app/Services/StockInService.php`, `app/Models/StockIn.php`, `app/Models/StockInItem.php`, `app/Models/StockMovement.php`, `database/migrations/2026_10_08_000003_create_stock_ins_tables.php`, `resources/views/inventory/stock-in/`, `resources/views/layouts/dashboard.blade.php`, `resources/views/dashboard.blade.php`, and `routes/web.php`.
 
@@ -779,13 +784,19 @@ Audit
 
 ## Testing
 
-- [ ] Normal Stock In
+- [x] Normal Stock In (warehouse posts immediately)
 - [ ] Invalid quantity
 - [x] Duplicate reference blocked
 - [ ] Batch
 - [ ] Expiry
-- [ ] Audit
-- [ ] Stock balance correctness
+- [x] Audit
+- [x] Stock balance correctness
+- [x] Outlet Stock In waits for approval and does not create a movement before approval
+- [x] Assigned PIC can view/approve; another outlet PIC cannot view or decide by URL/request ID
+- [x] Approval posts stock once, stores reviewer/time, and rejects repeat decisions
+- [x] Rejection requires a reason, leaves balance unchanged, and is visible to Staff Gudang
+- [x] Other roles cannot approve; warehouse receipt still posts immediately
+- [ ] Production UAT for Staff Gudang and PIC Outlet
 
 ---
 
@@ -1092,7 +1103,7 @@ Riwayat
 - [x] Detail pages display document header, products and quantities, current workflow status, and audit changes where available
 - [x] Riwayat navigation opens the unified history; stock movement ledger remains linked from this page
 
-**Implementation assumptions:** Stock In and Stock Out are considered completed when recorded because their current schemas do not store workflow status. Audit log rows are only visible to users with `users.manage`. Batch details and transfer records await their respective data models.
+**Implementation assumptions:** Stock Out is completed when recorded. Stock In status follows outlet PIC approval where required; its decision history is retained in the Stock In record and audit log. Audit log rows are only visible to users with `users.manage`. Batch details and transfer records await their respective data models.
 
 **Files added/updated (2026-10-08):** `app/Http/Controllers/TransactionHistoryController.php`, `resources/views/inventory/transaction-history/`, `resources/views/layouts/dashboard.blade.php`, and `routes/web.php`.
 
@@ -1165,8 +1176,36 @@ Exact procurement workflow remains `[FOLLOW-UP]`.
 - [x] Staff Gudang or Super Admin can receive an issued PO in full; receiving creates linked Stock In and stock ledger movements atomically
 - [x] Audit events are recorded for PR submission/review, PO issue, and receipt
 - [x] Purchasing menu and actions are permission-gated by role
+- [x] Purchasing records supplier invoices with source total, item quantities/prices, optional PO link, private validated document upload, and supplier-scoped duplicate prevention
+- [x] Purchasing submits invoices to Finance; Finance accepts, rejects, or requests revision with actor/time/reason audit trail
+- [x] Invoice review compares billed item quantities to the linked PO and Stock In where those records exist; invoice actions do not create Stock In, payment, or stock movements
+- [x] Finance can inspect ledger-backed quantity by item/location; no money valuation is shown until the valuation method and approved price source are confirmed
+- [x] Invoice and valuation routes are restricted to explicit invoice permissions; document downloads are served through the authenticated controller
+- [x] Targeted `PurchaseInvoiceWorkflowTest`: 8 tests passed (57 assertions), covering invoice forms, supplier/item/unit persistence, duplicate invoice identity, workflow/permissions, private document access, stock isolation, PO/receipt quantity and available price comparison, price-change audit history, and valuation quantity display
+- [ ] Full suite: 45 passed (283 assertions), 3 existing `DashboardFeatureTest` failures in dashboard role/layout and login badge assertions; this task did not edit dashboard or login views
+- [x] Applied invoice schema and invoice permission migrations to the configured development database
 
 **Implementation assumptions:** Because the detailed procurement approval matrix is still `[FOLLOW-UP]`, PR approval is restricted to Super Admin to prevent self-approval. The Purchasing role submits PRs and creates POs. PO receiving is limited to Staff Gudang and Super Admin using existing `stock.manage`. The MVP accepts only a full receipt matching PO quantities; partial, over, or under receipt, pricing, batch, and expiry are not implemented. PO generation does not create supplier communications.
+
+**Invoice and Finance scope (2026-10-14):** Supplier identity reuses the existing `suppliers` master. Invoice identity is unique per supplier after trimming and case-folding the invoice number. Invoice document total is recorded as stated on the source document; item quantity/unit price are stored separately without forcing their subtotal to equal the document total. Discount/tax breakdown and payment tracking remain `[FOLLOW-UP]` because their document format and business treatment have not been confirmed. Invoice status is independent of Stock In and payment. A linked invoice is compared to the existing full PO receipt; receipt discrepancy resolution remains `[FOLLOW-UP]`. The valuation screen reports current ledger quantities but no monetary total. Valuation method, eligible verified price source, correction treatment, and price-history reporting remain `[FOLLOW-UP]`; accepted invoices are therefore not yet used to calculate a final inventory value.
+
+**Files added/updated (2026-10-14):** `app/Http/Controllers/PurchaseInvoiceController.php`, `app/Models/PurchaseInvoice.php`, `app/Models/PurchaseInvoiceItem.php`, `app/Services/PurchaseInvoiceService.php`, `app/Services/InventoryValuationService.php`, `database/migrations/2026_10_14_000004_create_purchase_invoices_tables.php`, `database/migrations/2026_10_14_000005_grant_purchase_invoice_permissions.php`, `database/migrations/2026_10_14_000006_add_unit_snapshot_to_purchase_invoice_items.php`, `database/seeders/RolePermissionSeeder.php`, `resources/views/purchase-invoices/`, `resources/views/purchasing/index.blade.php`, `resources/views/reports/index.blade.php`, `routes/web.php`, and `tests/Feature/PurchaseInvoiceWorkflowTest.php`.
+
+**Checklist:**
+- [x] Supplier master reused; no duplicate supplier module/table
+- [x] Invoice draft, submit, Finance decision, and revision cycle
+- [x] Required supplier/document validation and private document storage/download authorization
+- [x] Quantity, product unit snapshot, unit price, and document total retained from invoice entry
+- [x] Duplicate invoice number prevention scoped by supplier (trimmed, case-insensitive key)
+- [x] Audit create/update/submit/Finance decision with actor, timestamps, and submitted reason
+- [x] Invoice-to-PO/Stock In quantity comparison and optional PO price mismatch display, without stock posting
+- [x] Finance role can view invoices and quantity balances; Purchasing can manage and submit invoices but cannot perform Finance decisions
+- [x] Dashboard views were not edited as part of this task
+- [ ] Confirm invoice document tax/discount capture format and payment workflow
+- [ ] Define receipt discrepancy handling and any partial/over/under receiving rules
+- [ ] Approve inventory valuation method, price source, correction/reversal behavior, and valuation history/export
+- [ ] Implement and verify final monetary inventory valuation after business rules are confirmed
+- [ ] UAT with Purchasing and Finance users
 
 **Files added/updated (2026-10-08):** `app/Http/Controllers/PurchasingController.php`, `app/Services/PurchasingService.php`, `app/Services/StockInService.php`, `app/Models/PurchaseRequest.php`, `app/Models/PurchaseRequestItem.php`, `app/Models/PurchaseOrder.php`, `app/Models/PurchaseOrderItem.php`, `app/Models/StockIn.php`, `database/migrations/2026_10_08_000008_create_purchasing_tables.php`, `database/seeders/RolePermissionSeeder.php`, `resources/views/purchasing/`, `resources/views/layouts/dashboard.blade.php`, and `routes/web.php`.
 
@@ -1174,7 +1213,7 @@ Exact procurement workflow remains `[FOLLOW-UP]`.
 
 # FEATURE 13 — APPROVAL WORKFLOW
 
-**Status:** Done (MVP for Purchase Request and Stock Opname; other approval candidates remain follow-up)  
+**Status:** Done (MVP for Purchase Request, Stock Opname, and outlet Stock In; other approval candidates remain follow-up)
 **Priority:** High
 
 ## Purpose
@@ -1188,6 +1227,7 @@ Mengontrol transaksi yang membutuhkan persetujuan.
 - [ ] Stock Adjustment
 - [x] Stock Opname
 - [ ] Stock Out if required
+- [x] Outlet Stock In (assigned PIC; warehouse receipts remain immediate)
 
 ## UI
 
@@ -1217,8 +1257,9 @@ Exact approval matrix is `[FOLLOW-UP]`.
 - [x] Rejection requires a reason; decisions store reviewer, timestamp, status, and review note
 - [x] Existing audit logs record PR and Stock Opname approval decisions
 - [x] Approval menu is visible only to roles with an approval permission
+- [x] Outlet Stock In approval uses the existing PIC-to-location assignment, backend scope checks, audit records, and duplicate-posting guard
 
-**Implementation assumptions:** Until the approval matrix is confirmed, only workflows already required by implemented features are included. A PO requires an approved PR but has no separate approval step. Stock Adjustment remains Super Admin-only without approval; Stock Out approval remains disabled pending confirmation.
+**Implementation assumptions:** Until the approval matrix is confirmed, only workflows already required by implemented features are included. A PO requires an approved PR but has no separate approval step. Stock Adjustment remains Super Admin-only without approval; Stock Out approval remains disabled pending confirmation. PIC users currently have one outlet via `users.location_id`; support for multiple outlets per PIC remains `[FOLLOW-UP]`.
 
 **Files added/updated (2026-10-08):** `app/Http/Controllers/ApprovalController.php`, `app/Http/Controllers/PurchasingController.php`, `app/Services/PurchasingService.php`, `app/Services/StockOpnameService.php`, `resources/views/approvals/`, `resources/views/purchasing/request-show.blade.php`, `resources/views/layouts/dashboard.blade.php`, and `routes/web.php`.
 
@@ -1363,7 +1404,7 @@ Stock In and outlet balance update for the actual received quantity; shortages a
 ---
 # FEATURE 17 — LAPORAN
 
-**Status:** Implemented (filterable report center and CSV export; other export formats pending decision)  
+**Status:** Implemented (filterable report center with CSV, Excel, and PDF export)
 **Priority:** High
 
 ## Primary Page
@@ -1403,10 +1444,10 @@ Laporan
 ## Export
 
 - [x] CSV (Excel-compatible UTF-8, semicolon-delimited)
-- [ ] Excel
-- [ ] PDF
+- [x] Excel (.xlsx)
+- [x] PDF
 
-> Export format selain CSV tetap mengikuti keputusan user.
+The report page supports CSV, Excel, and PDF downloads using the active filters and all matching rows. PIC Outlet exports remain scoped to the assigned location. The report UI uses a compact operational layout with responsive result cards.
 
 **Implementation:** One report page selects the report type and applies the relevant common filters. PIC Outlet data is restricted to the assigned outlet; purchasing reports are available to Super Admin, Management, Finance, and Purchasing. CSV export uses the same filters as the page and neutralizes spreadsheet formula input.
 
@@ -1414,7 +1455,7 @@ Laporan
 
 # FEATURE 18 — LOW STOCK ALERT
 
-**Status:** Implemented  
+**Status:** Implemented (threshold configuration, event handling, history, and responsive alert UI)
 **Priority:** High
 
 ## Purpose
@@ -1522,7 +1563,7 @@ The owner approved using `whatsapp-web.js` despite the provider risk. `npm audit
 
 # FEATURE 20 — AUDIT LOG
 
-**Status:** Planned  
+**Status:** Partial (existing audit events and Super Admin audit viewer implemented; event coverage and verification remain)
 **Priority:** High
 
 ## Purpose
@@ -1531,48 +1572,49 @@ Mencatat siapa melakukan apa, kapan, dan terhadap data apa.
 
 ## Events
 
-- [ ] Login/security events if required
-- [ ] Master data changes
-- [ ] Stock In
-- [ ] Stock Out
-- [ ] Opname
-- [ ] Adjustment
-- [ ] Approval
-- [ ] Purchasing
-- [ ] Configuration changes
-- [ ] Notification send result
+- [ ] Login/security events if required; requirement remains `[FOLLOW-UP]`
+- [x] Master data changes
+- [x] Stock In
+- [x] Stock Out
+- [x] Opname
+- [x] Adjustment
+- [x] Approval
+- [x] Purchasing
+- [x] User and role/permission changes
+- [ ] WhatsApp notification send result (delivery log exists separately; unified audit event remains follow-up)
 
-## Data
+## Data and UI
 
-- [ ] User
-- [ ] Action
-- [ ] Entity
-- [ ] Entity ID
-- [ ] Timestamp
-- [ ] Old value if needed
-- [ ] New value if needed
-- [ ] Reference
+- [x] Actor, action, entity, entity ID, timestamp, and structured change snapshots
+- [x] Search and filters by action, actor, entity, and date range
+- [x] Paginated activity cards with expandable change details
+- [x] Super Admin-only access via `users.manage`
+- [ ] Verify audit coverage and sensitive-field redaction for every event
+
+**Implementation:** Reuses the existing `administration_audit_logs` table and `AdminAuditLogger`; no schema change was needed. Audit events are visible at `/admin/audit` and are restricted to Super Admin. Login/security and unified WhatsApp delivery events remain follow-up items.
 
 ---
 
 # FEATURE 21 — SYSTEM CONFIGURATION
 
-**Status:** Planned  
+**Status:** Partial (Super Admin configuration hub and existing settings entry points implemented; expiry and approval rules remain follow-up)
 **Priority:** Medium
 
 ## Configurable Items
 
-- [ ] Role/permission
-- [ ] Warehouse
-- [ ] Outlet
-- [ ] Category
-- [ ] Unit
-- [ ] Supplier
-- [ ] Stock status
+- [x] Role/permission
+- [x] Warehouse
+- [x] Outlet
+- [x] Category
+- [x] Unit
+- [x] Supplier
+- [x] Stock status (active/inactive in master data)
 - [ ] Expiry warning
-- [ ] Minimum stock
+- [x] Minimum stock (per product and location)
 - [ ] Approval settings
-- [ ] Notification settings
+- [x] Notification settings (WhatsApp recipients, template, and enable/disable)
+
+**Implementation:** Pusat akses konfigurasi Super Admin tersedia di `/admin/settings`, dengan tautan ke halaman role/permission, master data, batas minimum stok, dan notifikasi WhatsApp yang sudah ada. Aturan peringatan expiry dan matriks approval tetap belum bisa diubah sampai kebijakan bisnisnya dikonfirmasi. Halaman ini dilindungi permission `users.manage` dan tidak mengubah transaksi historis.
 
 ## Rule
 
@@ -1729,46 +1771,46 @@ Sprint is provisional and follows actual stakeholder priority.
 
 ## Sprint 1 — Foundation + Access
 
-- [ ] Project setup
-- [ ] Authentication
-- [ ] User
-- [ ] Role/permission
-- [ ] UI system
+- [x] Project setup
+- [x] Authentication
+- [x] User management
+- [x] Role/permission (MVP; detailed permission matrix follow-up)
+- [x] UI system baseline
 
 ## Sprint 2 — Master Data + Dashboard
 
-- [ ] Master Data
-- [ ] Dashboard
-- [ ] Navigation
+- [x] Master Data
+- [x] Dashboard baseline (inventory KPI and activity follow-up)
+- [x] Navigation
 
 ## Sprint 3 — Data Stock + Stock In
 
-- [ ] Data Stock
-- [ ] Stock detail
-- [ ] Stock In
-- [ ] Stock movement foundation
+- [x] Data Stock basic list, search, and ledger balance (per-location/batch follow-up)
+- [ ] Stock detail (per-location/batch detail follow-up)
+- [x] Stock In (MVP; batch/expiry follow-up)
+- [x] Stock movement foundation
 
 ## Sprint 4 — Stock Out + Distribution
 
-- [ ] Stock request
-- [ ] Picking
-- [ ] Stock Out
-- [ ] Distribution
-- [ ] Receiving
+- [x] Stock request
+- [x] Picking
+- [x] Stock Out (MVP; FEFO implemented, approval follow-up)
+- [x] Distribution (MVP)
+- [x] Receiving (MVP; partial receiving follow-up)
 
 ## Sprint 5 — Stock Opname + Adjustment
 
-- [ ] Stock Opname
-- [ ] Variance
-- [ ] Adjustment
-- [ ] Audit
+- [x] Stock Opname
+- [x] Variance
+- [x] Adjustment (approval follow-up)
+- [x] Audit events and Super Admin viewer (coverage/redaction review follow-up)
 
 ## Sprint 6 — Purchasing + Approval
 
-- [ ] Purchase Request
-- [ ] Purchase Order
-- [ ] Approval
-- [ ] Receiving integration
+- [x] Purchase Request
+- [x] Purchase Order (MVP)
+- [x] Approval (Stock Opname MVP; Purchase Request auto-approved on submission)
+- [x] Receiving integration (MVP)
 
 ## Sprint 7 — Batch + FEFO + Expiry
 
@@ -1780,16 +1822,16 @@ Sprint is provisional and follows actual stakeholder priority.
 
 ## Sprint 8 — Riwayat + Laporan
 
-- [ ] Riwayat
-- [ ] Reports
-- [ ] Export
+- [x] Riwayat (MVP; transfer history follow-up)
+- [x] Reports
+- [x] Export (CSV, Excel, PDF)
 
 ## Sprint 9 — Notification
 
-- [ ] Low stock
-- [ ] WhatsApp service
-- [ ] Queue
-- [ ] Notification history
+- [x] Low stock alerts
+- [x] WhatsApp service scaffold (provider activation pending approval)
+- [x] Queue
+- [x] Notification history
 
 ## Sprint 10 — Hardening + UAT
 
@@ -1929,22 +1971,22 @@ Gunakan bagian ini sebagai overview cepat.
 | 03 | Master Data | Critical | Done (scope MVP) |
 | 04 | Dashboard | Critical | Partial |
 | 05 | Data Stock | Critical | Partial (live ledger balance; per-location/batch follow-up) |
-| 06 | Stock In | Critical | Done (MVP; batch/expiry follow-up) |
+| 06 | Stock In | Critical | Done (MVP; outlet PIC approval added; batch/expiry and UAT follow-up) |
 | 07 | Stock Out | Critical | Done (MVP; FEFO allocation implemented, approval follow-up) |
 | 08 | Stock Opname | Critical | Done (MVP; batch/FIFO and schedule automation follow-up) |
 | 09 | Stock Adjustment | High | Done (MVP; approval matrix follow-up) |
 | 10 | Stock Movement | High | Done (MVP; transfer/waste movement types follow-up) |
-| 11 | Riwayat Transaksi | High | Planned |
-| 12 | Purchasing | High | Planned |
-| 13 | Approval Workflow | High | Planned |
+| 11 | Riwayat Transaksi | High | Done (MVP; transfer history follow-up) |
+| 12 | Purchasing | High | Done (MVP; procurement rules follow-up) |
+| 13 | Approval Workflow | High | Done (MVP: Stock Opname and outlet Stock In; PR approval removed in favor of automatic approval) |
 | 14 | Batch & Expiry | High | Done (MVP; expired-stock disposal workflow follow-up) |
-| 15 | FEFO Allocation | High | Done (MVP; allocation verified by UAT) |
+| 15 | FEFO Allocation | High | Done (MVP; UAT pending) |
 | 16 | Transfer / Distribution | High | Done (MVP; UAT pending) |
-| 17 | Laporan | High | Planned |
-| 18 | Low Stock Alert | High | Planned |
+| 17 | Laporan | High | Done (CSV, Excel, PDF; responsive result cards) |
+| 18 | Low Stock Alert | High | Done (thresholds, event handling, history, responsive UI) |
 | 19 | WhatsApp Alert | Medium/High | Partial (queue/configuration complete; provider activation pending approval) |
-| 20 | Audit Log | High | Planned |
-| 21 | System Configuration | Medium | Planned |
+| 20 | Audit Log | High | Partial (core event coverage and Super Admin viewer implemented; review remains) |
+| 21 | System Configuration | Medium | Partial (configuration hub and existing settings available; expiry/approval rules follow-up) |
 
 ---
 
@@ -1955,8 +1997,8 @@ Gunakan bagian ini sebagai overview cepat.
 - [ ] Requirements validated
 - [ ] Business rules validated
 - [ ] Feature backlog approved
-- [ ] Authentication completed
-- [ ] Master Data completed
+- [x] Authentication completed
+- [x] Master Data completed (MVP)
 - [ ] Dashboard completed
 - [ ] Data Stock completed
 - [x] Stock In completed (MVP; batch and expiry remain follow-up)
@@ -1965,15 +2007,17 @@ Gunakan bagian ini sebagai overview cepat.
 - [x] Stock Adjustment completed (MVP; approval matrix follow-up)
 - [x] Stock Movement completed (MVP; transfer and waste movement types remain follow-up)
 - [x] Riwayat completed (MVP; transfer history and batch detail remain follow-up)
-- [x] Purchasing completed (MVP; procurement workflow details remain follow-up)
-- [x] Approval completed (MVP for PR and Stock Opname; other approval candidates remain follow-up)
+- [x] Purchasing and invoice review completed (MVP; partial receipt and discrepancy recording implemented; tax/payment and valuation method remain follow-up)
+- [ ] Final monetary inventory valuation (blocked on confirmed method and approved price source)
+- [x] Approval completed (MVP for Stock Opname and outlet Stock In; PR is auto-approved; other candidates remain follow-up)
 - [x] Batch/Expiry completed (MVP; expired-stock disposal workflow remains follow-up)
 - [x] FEFO allocation completed (MVP; UAT pending)
 - [x] Distribution completed (MVP; full receipt only, UAT pending)
-- [ ] Laporan completed
-- [ ] Low Stock Alert completed
+- [x] Laporan completed (CSV, Excel, PDF; filterable report center)
+- [x] Low Stock Alert completed (thresholds, event handling, history, responsive UI)
 - [ ] WhatsApp Alert completed
-- [ ] Audit Log completed
+- [ ] Audit Log completed (viewer and core events implemented; coverage/redaction review remains)
+- [ ] System Configuration completed (hub and existing settings linked; expiry/approval rules remain)
 - [ ] Testing completed
 - [ ] UAT completed
 - [ ] Deployment completed
@@ -1998,6 +2042,21 @@ Date: 2026-10-08
 
 # 18. PROJECT DEFINITION
 
+## CHANGELOG — STOCK IN APPROVAL BY OUTLET PIC
+
+Date: 2026-10-14
+
+- [x] Audited Stock In, movement ledger, transfer receipt workflow, role permissions, and the existing PIC `users.location_id` assignment.
+- [x] Direct Stock In to an outlet now waits for its assigned PIC; warehouse receipts and the established transfer receipt process retain their prior behavior.
+- [x] Approval/rejection records status, reviewer, decision time, rejection reason, and an audit event; a unique movement link prevents duplicate posting.
+- [x] Added migrations `2026_10_14_000001_add_pic_approval_to_stock_ins.php`, `2026_10_14_000002_unique_stock_in_movements.php`, and `2026_10_14_000003_grant_stock_in_approval_permission.php`.
+- [x] Applied all three migrations to the configured local MySQL database; verified the approval permission is assigned to Super Admin and PIC Outlet.
+- [x] Added backend outlet authorization, PIC review UI, and Staff Gudang decision history.
+- [x] Targeted verification: 10 tests passed (67 assertions) across approval, rejection, access scope, role boundaries, Stock In views, and transaction history.
+- [ ] UAT with operational Staff Gudang/PIC accounts.
+- [ ] Multi-outlet assignment for one PIC (current schema supports one outlet per user).
+- [ ] Full suite follow-up: 3 `DashboardFeatureTest` failures concern existing login/dashboard assertions outside this locked-dashboard task; 37 tests passed (226 assertions).
+
 **Working Name:** Technolife Inventory Management System
 
 **Academic Direction:**
@@ -2007,3 +2066,31 @@ Date: 2026-10-08
 Title is **NOT FINAL**.
 
 Potential academic focus remains dependent on validated business rules, especially inventory management, Stock In/Out, Stock Opname, FIFO, batch, expiry, and warehouse/outlet distribution.
+
+## CHANGELOG — AUTO-APPROVED PR & WAREHOUSE PO RECEIVING
+
+Date: 2026-10-14
+
+- [x] New Purchase Requests are automatically approved; Super Admin approval actions and the `purchasing.approve` permission were removed.
+- [x] Purchase Orders can only target warehouse locations, where Staff Gudang records delivered and accepted quantities before stock is added.
+- [x] Partial receipts stay open for later deliveries; damaged and excess goods require a variance note, and accepted quantity is limited to the remaining PO amount.
+- [x] Existing pending PRs were migrated to approved, and historical PO receipt lines were linked to their PO items for accurate remaining quantities.
+- [x] Applied migrations `2026_10_14_000007_add_partial_purchase_receipt_details.php` and `2026_10_14_000008_auto_approve_purchase_requests.php` to the configured local database.
+- [x] Verified PHP syntax, Blade view compilation, purchasing routes, and that no pending PRs or `purchasing.approve` permission remain.
+- [ ] UAT with Purchasing and Staff Gudang accounts, including partial shipment, damaged units, and a completed PO.
+
+## CHANGELOG — INCREMENTAL FINANCE & INVENTORY CONTROL
+
+Date: 2026-10-15
+
+- [x] Preserved the existing stock movement ledger and the already-supported partial transfer receiving workflow.
+- [x] Added PO receiving before invoice availability, with a later auditable invoice link; the receipt still adds stock immediately.
+- [x] Added line-price based moving weighted average valuation per product-location with provisional and incomplete cost indicators and CSV export.
+- [x] Added split supplier payment records, tracked separately from Finance invoice review; only accepted invoices can receive payment entries.
+- [x] Added audited write-off/supplier-return requests with Purchasing approval before any stock decrement, plus structured rejection categories for Stock In and supplier invoices.
+- [x] Added optional Stock Out purpose and PIC WhatsApp phone destinations while preserving configured global WhatsApp recipients.
+- [ ] Apply the additive migrations after staging review; they have not been applied as part of this task.
+- [ ] UAT with Purchasing, Finance, Staff Gudang, PIC Outlet, and Management; validate reports against sample receipts/payments and confirm handling of tax/freight/discount components before using values as accounting close numbers.
+- [ ] Confirm WhatsApp provider connectivity and delivery to an outlet PIC before operational activation.
+
+The detailed task-by-task compatibility notes and residual gaps are in `docs/technolife-inventory-incremental-task-plan-v1.md`. Dashboard remains outside this change.

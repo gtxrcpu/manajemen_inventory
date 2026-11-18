@@ -33,7 +33,7 @@ class MasterDataTest extends TestCase
 
         $this->actingAs($admin)->post(route('admin.master-data.store', 'products'), [
             'sku' => 'TL-001', 'name' => 'Beras', 'category_id' => $category->id, 'unit_id' => $unit->id,
-            'description' => 'Beras putih', 'is_active' => '1',
+            'description' => 'Beras putih', 'requires_expiry_tracking' => '0', 'is_active' => '1',
         ])->assertRedirect();
 
         $product = Product::where('sku', 'TL-001')->firstOrFail();

@@ -17,9 +17,14 @@ class StockOutController extends Controller
     public function index(Request $request): View
     {
         $user = $request->user();
-        $locationId = $user->hasRole('pic_outlet')
-            ? $user->location_id
+        $isPic = $user->hasRole('pic_outlet');
+        $isLocationScoped = $user->isLocationScopedUser();
+        $locationIds = $isLocationScoped ? $user->assignedLocationIds() : [];
+        if ($isLocationScoped) abort_unless($locationIds, 403, 'Akun operasional belum memiliki lokasi aktif yang ditugaskan.');
+        $locationId = $isLocationScoped
+            ? ($request->filled('location_id') ? $request->integer('location_id') : ($user->location_id ?: $locationIds[0]))
             : ($request->filled('location_id') ? $request->integer('location_id') : $request->session()->get('selected_location_id'));
+        if ($isLocationScoped) abort_unless(in_array((int) $locationId, $locationIds, true), 403);
         $query = StockOut::with(['location', 'issuer', 'items.product.unit', 'items.batch']);
 
         if ($request->filled('q')) {
@@ -32,7 +37,8 @@ class StockOutController extends Controller
             });
         }
 
-        if ($locationId) $query->where('location_id', $locationId);
+        if ($isLocationScoped) $query->where('location_id', $locationId);
+        elseif ($locationId) $query->where('location_id', $locationId);
 
         if ($request->filled('date_from')) {
             $query->whereDate('issued_at', '>=', $request->input('date_from'));
@@ -45,37 +51,55 @@ class StockOutController extends Controller
         $issues = $query->latest('issued_at')->latest('id')->paginate(15)->withQueryString();
 
         $stats = [
-            'total_issues' => StockOut::when($locationId, fn ($q) => $q->where('location_id', $locationId))->count(),
-            'total_items_qty' => (float) \App\Models\StockOutItem::whereHas('stockOut', fn ($q) => $q->when($locationId, fn ($sub) => $sub->where('location_id', $locationId)))->sum('quantity'),
-            'this_month_count' => StockOut::whereMonth('issued_at', now()->month)->whereYear('issued_at', now()->year)->when($locationId, fn ($q) => $q->where('location_id', $locationId))->count(),
+            'total_issues' => StockOut::when($isPic || $locationId, fn ($q) => $q->where('location_id', $locationId))->count(),
+            'total_items_qty' => (float) \App\Models\StockOutItem::whereHas('stockOut', fn ($q) => $q->when($isPic || $locationId, fn ($sub) => $sub->where('location_id', $locationId)))->sum('quantity'),
+            'this_month_count' => StockOut::whereMonth('issued_at', now()->month)->whereYear('issued_at', now()->year)->when($isPic || $locationId, fn ($q) => $q->where('location_id', $locationId))->count(),
             'locations_count' => $locationId ? Location::whereKey($locationId)->where('is_active', true)->count() : Location::where('is_active', true)->count(),
         ];
 
         return view('inventory.stock-out.index', [
             'issues' => $issues,
             'stats' => $stats,
-            'locations' => Location::where('is_active', true)->orderBy('name')->get(),
+            'locations' => Location::where('is_active', true)->when($isLocationScoped, fn ($q) => $q->whereIn('id', $locationIds))->orderBy('name')->get(),
             'filters' => array_merge($request->only(['q', 'date_from', 'date_to']), ['location_id' => $locationId]),
         ]);
     }
 
     public function create(Request $request, BatchInventoryService $batchInventory): View
     {
+        $user = $request->user();
+        $isPic = $user->hasRole('pic_outlet');
+        $isLocationScoped = $user->isLocationScopedUser();
+        $locationIds = $isLocationScoped ? $user->assignedLocationIds() : [];
+        if ($isLocationScoped) abort_unless($locationIds, 403, 'Akun operasional belum memiliki lokasi aktif yang ditugaskan.');
+        $selectedLocationId = $isLocationScoped
+            ? ($request->filled('location_id') ? $request->integer('location_id') : ($user->location_id ?: $locationIds[0]))
+            : ($request->filled('location_id') ? $request->integer('location_id') : $request->session()->get('selected_location_id'));
+        if ($isLocationScoped) abort_unless(in_array((int) $selectedLocationId, $locationIds, true), 403);
         $products = Product::where('is_active', true)->with('unit')->orderBy('name')->get();
+        $locations = Location::where('is_active', true)->when($isLocationScoped, fn ($q) => $q->whereIn('id', $locationIds))->orderBy('name')->get();
         return view('inventory.stock-out.create', [
             'products' => $products,
             'productOptions' => $products->map(fn (Product $product) => ['id' => $product->id, 'name' => $product->name, 'sku' => $product->sku, 'unit' => $product->unit->symbol])->values(),
-            'locations' => Location::where('is_active', true)->orderBy('name')->get(),
-            'selectedLocationId' => $request->user()->hasRole('pic_outlet') ? $request->user()->location_id : $request->session()->get('selected_location_id'),
-            'batchOptions' => $batchInventory->stockOutOptions(),
+            'locations' => $locations,
+            'selectedLocationId' => $selectedLocationId,
+            'batchOptions' => $batchInventory->stockOutOptions($isLocationScoped ? $locationIds : $selectedLocationId),
         ]);
     }
 
     public function store(Request $request, StockOutService $service): RedirectResponse
     {
+        if ($request->user()->isLocationScopedUser()) {
+            $locationIds = $request->user()->assignedLocationIds();
+            abort_unless($locationIds, 403, 'Akun operasional belum memiliki lokasi aktif yang ditugaskan.');
+            $locationId = $request->filled('location_id') ? $request->integer('location_id') : ($request->user()->location_id ?: $locationIds[0]);
+            abort_unless(in_array($locationId, $locationIds, true), 403);
+            $request->merge(['location_id' => $locationId]);
+        }
         $data = $request->validate([
             'reference' => ['required', 'string', 'max:100', Rule::unique('stock_outs', 'reference')],
             'destination' => ['required', 'string', 'max:255'],
+            'purpose' => ['required', Rule::in(['sale', 'internal_use', 'sample', 'other'])],
             'location_id' => ['required', 'integer', 'exists:locations,id,deleted_at,NULL,is_active,1'],
             'issued_at' => ['required', 'date'],
             'notes' => ['nullable', 'string', 'max:5000'],
@@ -88,12 +112,29 @@ class StockOutController extends Controller
             'items.*.quantity.gt' => 'Jumlah barang harus lebih dari nol.',
         ]);
 
+        if ($data['purpose'] === 'other' && blank($data['notes'] ?? null)) {
+            return back()->withErrors(['notes' => 'Jelaskan alasan jika jenis pengeluaran dipilih Lainnya.'])->withInput();
+        }
+
+        $destinationLocation = Location::query()->where('is_active', true)
+            ->where(function ($query) use ($data) {
+                $query->whereRaw('LOWER(name) = ?', [mb_strtolower(trim($data['destination']))])
+                    ->orWhereRaw('LOWER(code) = ?', [mb_strtolower(trim($data['destination']))]);
+            })->exists();
+        if ($destinationLocation) {
+            return back()->withErrors(['destination' => 'Perpindahan ke lokasi lain harus dicatat melalui Stock Transfer.'])->withInput();
+        }
+
         $issue = $service->issue($data);
         return redirect()->route('inventory.stock-out.show', $issue)->with('status', 'Stock Out berhasil dicatat dan saldo sudah diperbarui.');
     }
 
     public function show(StockOut $stockOut): View
     {
+        $user = auth()->user();
+        if ($user->isLocationScopedUser()) {
+            abort_unless(in_array((int) $stockOut->location_id, $user->assignedLocationIds(), true), 403);
+        }
         return view('inventory.stock-out.show', ['issue' => $stockOut->load(['location', 'issuer', 'items.product.unit', 'items.batch.stockIn'])]);
     }
 }

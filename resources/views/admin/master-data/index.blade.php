@@ -44,6 +44,33 @@
         </a>
     </div>
 
+    @if($resource === 'products')
+    <section class="space-y-3 rounded-2xl border border-rose-100 bg-white p-4 shadow-sm">
+        <div><h2 class="text-sm font-semibold text-gray-900">Impor produk dari Excel</h2><p class="mt-1 text-xs text-gray-500">Unduh template, isi data produk, lalu unggah kembali. Maksimal 1.000 produk per file.</p></div>
+        <button type="button" data-product-template class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 px-3 py-2.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"><span class="material-symbols-outlined text-[17px]">download</span>Unduh template Excel</button>
+        <form method="POST" action="{{ route('admin.master-data.products.import') }}" data-spreadsheet-import-form data-import-sheet="Produk" class="space-y-2">@csrf
+            <input type="hidden" name="rows">
+            <input required type="file" data-spreadsheet-import-file accept=".xlsx,.xls,.csv" class="block w-full rounded-lg border border-gray-200 bg-gray-50 p-2 text-xs file:mr-3 file:rounded-md file:border-0 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-semibold">
+            <button type="submit" data-spreadsheet-import-submit class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#DC143C] px-3 py-2.5 text-xs font-semibold text-white hover:bg-[#b01030]"><span class="material-symbols-outlined text-[17px]">upload_file</span>Impor produk</button>
+        </form>
+        @if($errors->has('rows') || $errors->has('workbook'))<p class="rounded-lg bg-red-50 p-2 text-xs text-red-700">{{ $errors->first('rows') ?: $errors->first('workbook') }}</p>@endif
+        @if(session('import_errors'))<ul class="max-h-36 space-y-1 overflow-y-auto rounded-lg bg-amber-50 p-3 text-xs text-amber-900">@foreach(session('import_errors') as $importError)<li>{{ $importError }}</li>@endforeach</ul>@endif
+    </section>
+    @endif
+    @if($resource === 'categories')
+    <section class="space-y-3 rounded-2xl border border-rose-100 bg-white p-4 shadow-sm">
+        <div><h2 class="text-sm font-semibold text-gray-900">Impor kategori dari Excel</h2><p class="mt-1 text-xs text-gray-500">Isi template kategori, lalu unggah kembali. Maksimal 1.000 kategori per file.</p></div>
+        <button type="button" data-category-template class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 px-3 py-2.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"><span class="material-symbols-outlined text-[17px]">download</span>Unduh template Excel</button>
+        <form method="POST" action="{{ route('admin.master-data.categories.import') }}" data-spreadsheet-import-form data-import-sheet="Kategori" class="space-y-2">@csrf
+            <input type="hidden" name="rows">
+            <input required type="file" data-spreadsheet-import-file accept=".xlsx,.xls,.csv" class="block w-full rounded-lg border border-gray-200 bg-gray-50 p-2 text-xs file:mr-3 file:rounded-md file:border-0 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-semibold">
+            <button type="submit" data-spreadsheet-import-submit class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#DC143C] px-3 py-2.5 text-xs font-semibold text-white hover:bg-[#b01030]"><span class="material-symbols-outlined text-[17px]">upload_file</span>Impor kategori</button>
+        </form>
+        @if($errors->has('rows') || $errors->has('workbook'))<p class="rounded-lg bg-red-50 p-2 text-xs text-red-700">{{ $errors->first('rows') ?: $errors->first('workbook') }}</p>@endif
+        @if(session('import_errors'))<ul class="max-h-36 space-y-1 overflow-y-auto rounded-lg bg-amber-50 p-3 text-xs text-amber-900">@foreach(session('import_errors') as $importError)<li>{{ $importError }}</li>@endforeach</ul>@endif
+    </section>
+    @endif
+
     <!-- Resource Tabs (horizontal scroll) -->
     <div class="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-none">
         @foreach($tabs as $key => $tab)
@@ -171,6 +198,37 @@
             <span class="material-symbols-outlined text-[18px]">add</span>Tambah {{ $config['label'] }}
         </a>
     </div>
+
+    @if($resource === 'products')
+    <section class="flex flex-wrap items-end justify-between gap-4 rounded-2xl border border-rose-100 bg-white p-5 shadow-sm">
+        <div class="min-w-56"><h2 class="font-semibold text-gray-900">Impor produk dari Excel</h2><p class="mt-1 text-xs text-gray-500">Gunakan template yang tersedia. Nama kategori dan satuan harus sudah terdaftar. Maksimal 1.000 produk per file.</p></div>
+        <div class="flex flex-wrap items-end gap-3">
+            <button type="button" data-product-template class="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 px-4 text-xs font-semibold text-gray-700 hover:bg-gray-50"><span class="material-symbols-outlined text-[17px]">download</span>Unduh template</button>
+            <form method="POST" action="{{ route('admin.master-data.products.import') }}" data-spreadsheet-import-form data-import-sheet="Produk" class="flex flex-wrap items-end gap-2">@csrf
+                <input type="hidden" name="rows">
+                <label class="block text-xs font-medium text-gray-600">Pilih file Excel<input required type="file" data-spreadsheet-import-file accept=".xlsx,.xls,.csv" class="mt-1 block max-w-xs rounded-lg border border-gray-200 bg-gray-50 p-2 text-xs file:mr-2 file:rounded-md file:border-0 file:bg-white file:px-2 file:py-1 file:font-semibold"></label>
+                <button type="submit" data-spreadsheet-import-submit class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#DC143C] px-4 text-xs font-semibold text-white hover:bg-[#b01030]"><span class="material-symbols-outlined text-[17px]">upload_file</span>Impor produk</button>
+            </form>
+        </div>
+        @if($errors->has('rows') || $errors->has('workbook'))<p class="w-full rounded-lg bg-red-50 p-2 text-xs text-red-700">{{ $errors->first('rows') ?: $errors->first('workbook') }}</p>@endif
+        @if(session('import_errors'))<ul class="max-h-36 w-full space-y-1 overflow-y-auto rounded-lg bg-amber-50 p-3 text-xs text-amber-900">@foreach(session('import_errors') as $importError)<li>{{ $importError }}</li>@endforeach</ul>@endif
+    </section>
+    @endif
+    @if($resource === 'categories')
+    <section class="flex flex-wrap items-end justify-between gap-4 rounded-2xl border border-rose-100 bg-white p-5 shadow-sm">
+        <div class="min-w-56"><h2 class="font-semibold text-gray-900">Impor kategori dari Excel</h2><p class="mt-1 text-xs text-gray-500">Gunakan template. Nama kategori harus unik. Maksimal 1.000 kategori per file.</p></div>
+        <div class="flex flex-wrap items-end gap-3">
+            <button type="button" data-category-template class="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 px-4 text-xs font-semibold text-gray-700 hover:bg-gray-50"><span class="material-symbols-outlined text-[17px]">download</span>Unduh template</button>
+            <form method="POST" action="{{ route('admin.master-data.categories.import') }}" data-spreadsheet-import-form data-import-sheet="Kategori" class="flex flex-wrap items-end gap-2">@csrf
+                <input type="hidden" name="rows">
+                <label class="block text-xs font-medium text-gray-600">Pilih file Excel<input required type="file" data-spreadsheet-import-file accept=".xlsx,.xls,.csv" class="mt-1 block max-w-xs rounded-lg border border-gray-200 bg-gray-50 p-2 text-xs file:mr-2 file:rounded-md file:border-0 file:bg-white file:px-2 file:py-1 file:font-semibold"></label>
+                <button type="submit" data-spreadsheet-import-submit class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#DC143C] px-4 text-xs font-semibold text-white hover:bg-[#b01030]"><span class="material-symbols-outlined text-[17px]">upload_file</span>Impor kategori</button>
+            </form>
+        </div>
+        @if($errors->has('rows') || $errors->has('workbook'))<p class="w-full rounded-lg bg-red-50 p-2 text-xs text-red-700">{{ $errors->first('rows') ?: $errors->first('workbook') }}</p>@endif
+        @if(session('import_errors'))<ul class="max-h-36 w-full space-y-1 overflow-y-auto rounded-lg bg-amber-50 p-3 text-xs text-amber-900">@foreach(session('import_errors') as $importError)<li>{{ $importError }}</li>@endforeach</ul>@endif
+    </section>
+    @endif
 
     <!-- Resource Tab Nav -->
     <nav class="flex items-center gap-1 p-1 bg-[#F5F5FA] rounded-xl w-fit">

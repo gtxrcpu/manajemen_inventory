@@ -35,9 +35,14 @@ class AuthenticatedSessionController extends Controller
             ]);
         }
 
-        $request->session()->regenerate();
+        // Destroy the pre-authentication session ID and start this login with a fresh ID.
+        $request->session()->regenerate(true);
+        $request->session()->forget('selected_location_id');
 
-        return redirect()->intended('/dashboard');
+        return redirect()->intended('/dashboard')
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, private')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
     }
 
     public function destroy(Request $request): RedirectResponse
@@ -47,6 +52,9 @@ class AuthenticatedSessionController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('login');
+        return redirect()->route('login')
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, private')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
     }
 }

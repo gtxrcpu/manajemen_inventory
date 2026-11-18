@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\LowStockAlert;
 use App\Models\WhatsAppAlertLog;
 use App\Models\WhatsAppAlertSetting;
+use App\Services\LowStockAlertService;
 use App\Contracts\NotificationProvider;
 use App\Support\QuantityFormatter;
 use Illuminate\Bus\Queueable;
@@ -26,10 +27,11 @@ class SendLowStockWhatsAppAlert implements ShouldQueue
     public function handle(NotificationProvider $provider): void
     {
         $settings = WhatsAppAlertSetting::query()->first();
+        $alert = LowStockAlert::with('location')->findOrFail($this->alertId);
         $recipientEnabled = config('services.whatsapp.provider_approved')
-            && $settings?->enabled
+            && $settings?->low_stock_enabled
             && $settings->risk_accepted_at
-            && in_array($this->recipient, $settings->recipients ?? [], true);
+            && app(LowStockAlertService::class)->isWhatsAppRecipientForAlert($alert, $this->recipient);
 
         $log = DB::transaction(function () use ($recipientEnabled) {
             $log = WhatsAppAlertLog::query()
@@ -59,7 +61,7 @@ class SendLowStockWhatsAppAlert implements ShouldQueue
         }
 
         $alert = LowStockAlert::with(['product.unit', 'location'])->findOrFail($this->alertId);
-        $template = $settings->message_template ?: "🔔 *Peringatan Stok Minimum*\n\nProduk: *{product}*\nLokasi: {location}\nStok saat ini: *{stock} {unit}*\nBatas minimum: {minimum} {unit}\n\nMohon periksa dan lakukan pengadaan bila diperlukan.";
+        $template = $settings->message_template ?: "🔔 *PERINGATAN STOK MINIMUM*\n_Sistem Inventaris Technolife_\n\n*Detail Barang*\n• Produk: *{product}*\n• SKU: {sku}\n• Lokasi: {location}\n• Stok saat ini: *{stock} {unit}*\n• Batas minimum: {minimum} {unit}\n\n*Waktu terdeteksi:* {timestamp} WIB\n\nMohon verifikasi stok fisik dan tindak lanjuti pengadaan atau restock bila diperlukan.\n_Pesan ini dikirim otomatis._";
         $message = strtr($template, [
             '{product}' => $alert->product->name,
             '{sku}' => $alert->product->sku,
@@ -67,6 +69,7 @@ class SendLowStockWhatsAppAlert implements ShouldQueue
             '{stock}' => QuantityFormatter::format($alert->stock_quantity),
             '{minimum}' => QuantityFormatter::format($alert->minimum_quantity),
             '{unit}' => $alert->product->unit->symbol,
+            '{timestamp}' => $alert->triggered_at->timezone('Asia/Jakarta')->format('d/m/Y H:i'),
         ]);
 
         try {

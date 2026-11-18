@@ -10,29 +10,38 @@ const QRCode = require('qrcode');
 const host = process.env.WHATSAPP_HOST || '127.0.0.1';
 const port = Number(process.env.WHATSAPP_PORT || 3100);
 const token = process.env.WHATSAPP_SERVICE_TOKEN || '';
-const authPath = process.env.WHATSAPP_AUTH_PATH || './.wwebjs_auth';
+const authPath = path.resolve(__dirname, '..', process.env.WHATSAPP_AUTH_PATH || '.wwebjs_auth');
 const approved = process.env.WHATSAPP_PROVIDER_APPROVED === 'true';
 
 if (token.length < 32) throw new Error('Set WHATSAPP_SERVICE_TOKEN to a secret of at least 32 characters.');
 
 let qrValue = null;
 let qrDataUrl = null;
+let qrCreatedAt = null;
 let connected = false;
 let account = null;
 let connectionState = 'starting';
 let reconnectTimer = null;
+let qrExpiryTimer = null;
 let shuttingDown = false;
 let reconnectDelay = 5000;
 let client;
 let reconnecting = false;
+let reconnectInProgress = false;
 let logoutRecoveryActive = false;
+const qrMaxAgeMs = 60_000;
+
+function clearQrExpiryTimer() {
+  clearTimeout(qrExpiryTimer);
+  qrExpiryTimer = null;
+}
 
 function createClient() {
   const instance = new Client({
     authStrategy: new LocalAuth({ dataPath: authPath }),
     puppeteer: {
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-cache', '--disable-application-cache', '--disk-cache-size=0', '--media-cache-size=0'],
       ...(process.env.PUPPETEER_EXECUTABLE_PATH ? { executablePath: process.env.PUPPETEER_EXECUTABLE_PATH } : {}),
     },
   });
@@ -56,24 +65,41 @@ function createClient() {
   }
 
   instance.on('qr', qr => {
+    if (client !== instance) return;
     watchBrowserErrors();
+    clearQrExpiryTimer();
     clearTimeout(reconnectTimer);
     reconnectTimer = null;
     reconnecting = false;
+    reconnectDelay = 5000;
     logoutRecoveryActive = false;
     qrValue = qr;
     qrDataUrl = null;
+    qrCreatedAt = Date.now();
     QRCode.toDataURL(qr, { errorCorrectionLevel: 'M', margin: 2, width: 280 })
       .then(dataUrl => { if (qrValue === qr) qrDataUrl = dataUrl; })
       .catch(error => console.error('Could not render WhatsApp QR:', error.message));
     connected = false;
     connectionState = 'qr';
     console.log('A fresh WhatsApp QR is ready to scan.');
+    qrExpiryTimer = setTimeout(() => {
+      qrExpiryTimer = null;
+      if (client !== instance || connected || qrValue !== qr) return;
+      qrValue = null;
+      qrDataUrl = null;
+      qrCreatedAt = null;
+      connectionState = 'generating_qr';
+      console.warn('WhatsApp QR expired without a refresh; restarting the client to request a new QR.');
+      scheduleReconnect({ resetSession: true });
+    }, qrMaxAgeMs);
   });
   instance.on('authenticated', () => {
+    if (client !== instance) return;
     watchBrowserErrors();
+    clearQrExpiryTimer();
     qrValue = null;
     qrDataUrl = null;
+    qrCreatedAt = null;
     connectionState = 'authenticated';
     console.log('WhatsApp account authenticated; waiting for client readiness.');
     setTimeout(async () => {
@@ -92,6 +118,8 @@ function createClient() {
     }, 45000);
   });
   instance.on('ready', () => {
+    if (client !== instance) return;
+    clearQrExpiryTimer();
     clearTimeout(reconnectTimer);
     reconnectTimer = null;
     reconnectDelay = 5000;
@@ -100,22 +128,30 @@ function createClient() {
     connected = true;
     qrValue = null;
     qrDataUrl = null;
+    qrCreatedAt = null;
     connectionState = 'connected';
     account = instance.info?.wid?.user || null;
     console.log('WhatsApp session is ready.');
   });
   instance.on('auth_failure', message => {
+    if (client !== instance) return;
+    clearQrExpiryTimer();
     connected = false;
     qrValue = null;
     qrDataUrl = null;
+    qrCreatedAt = null;
     account = null;
     connectionState = 'reconnecting';
     console.error('WhatsApp authentication failed:', message);
     scheduleReconnect({ resetSession: true });
   });
   instance.on('disconnected', reason => {
+    if (client !== instance) return;
+    clearQrExpiryTimer();
     connected = false;
     qrValue = null;
+    qrDataUrl = null;
+    qrCreatedAt = null;
     account = null;
     connectionState = 'reconnecting';
     console.error('WhatsApp disconnected:', reason);
@@ -130,12 +166,13 @@ function createClient() {
       reconnectTimer = setTimeout(() => {
         reconnectTimer = null;
         void recoverLoggedOutClient(instance);
-      }, 45000);
+      }, 5000);
       return;
     }
     scheduleReconnect();
   });
   instance.on('change_state', state => {
+    if (client !== instance) return;
     connectionState = String(state).toLowerCase();
     console.log('WhatsApp connection state:', state);
   });
@@ -143,42 +180,61 @@ function createClient() {
 }
 
 async function recoverLoggedOutClient(previousClient) {
-  if (!approved || shuttingDown || !logoutRecoveryActive) return;
+  if (!approved || shuttingDown || !logoutRecoveryActive || reconnectInProgress) return;
+  if (client !== previousClient) return;
+  reconnectInProgress = true;
+  let retry = false;
   try {
+    client = null;
     await previousClient.destroy().catch(() => {});
     await fs.rm(path.resolve(authPath, 'session'), { recursive: true, force: true, maxRetries: 4, retryDelay: 250 });
-    client = createClient();
-    await client.initialize();
+    if (shuttingDown) return;
+    const nextClient = createClient();
+    client = nextClient;
+    await nextClient.initialize();
   } catch (error) {
     console.error('WhatsApp logout recovery failed:', error.message);
     reconnectDelay = Math.min(reconnectDelay * 2, 300000);
-    scheduleReconnect({ resetSession: true });
+    logoutRecoveryActive = false;
+    retry = true;
+  } finally {
+    reconnectInProgress = false;
   }
+  if (retry) scheduleReconnect({ resetSession: true });
 }
 
 function scheduleReconnect({ resetSession = false } = {}) {
-  if (!approved || shuttingDown || reconnectTimer) return;
+  if (!approved || shuttingDown || reconnectTimer || reconnectInProgress) return;
   reconnecting = true;
   connectionState = resetSession ? 'generating_qr' : 'reconnecting';
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
+    reconnectInProgress = true;
     void (async () => {
+      let retry = false;
       try {
+        const previousClient = client;
+        client = null;
+        await previousClient?.destroy().catch(() => {});
         if (resetSession) {
-          await client.destroy().catch(() => {});
           const sessionDir = path.resolve(authPath, 'session');
           await fs.rm(sessionDir, { recursive: true, force: true, maxRetries: 4, retryDelay: 250 });
           console.log('Cleared the logged-out WhatsApp session; generating a new QR.');
         }
-        client = createClient();
-        await client.initialize();
+        if (shuttingDown) return;
+        const nextClient = createClient();
+        client = nextClient;
+        await nextClient.initialize();
       } catch (error) {
         console.error('WhatsApp reconnect failed:', error.message);
         connectionState = 'reconnecting';
         reconnecting = false;
         reconnectDelay = Math.min(reconnectDelay * 2, 300000);
-        scheduleReconnect({ resetSession });
+        retry = true;
+      } finally {
+        reconnectInProgress = false;
       }
+      if (retry) scheduleReconnect({ resetSession });
     })();
   }, reconnectDelay);
 }
@@ -263,12 +319,13 @@ const server = http.createServer(async (request, response) => {
       connected: approved && connected,
       account: approved ? account : null,
       state: approved ? connectionState : 'disabled',
-      qrReady: Boolean(qrValue),
+      qrReady: Boolean(qrValue && qrCreatedAt && Date.now() - qrCreatedAt < qrMaxAgeMs),
       reconnecting: approved && reconnecting,
     });
   }
   if (request.method === 'GET' && request.url === '/qr') {
-    return respond(response, 200, { qr: qrDataUrl });
+    const qrIsFresh = qrCreatedAt && Date.now() - qrCreatedAt < qrMaxAgeMs;
+    return respond(response, 200, { qr: qrIsFresh ? qrDataUrl : null });
   }
   if (request.method === 'POST' && request.url === '/messages') {
     if (!approved) return respond(response, 503, { error: 'WhatsApp provider is disabled pending approval.' });
@@ -316,14 +373,31 @@ if (approved) {
 async function shutdown() {
   shuttingDown = true;
   clearTimeout(reconnectTimer);
+  clearQrExpiryTimer();
   server.close();
-  await client.destroy().catch(() => {});
+  if (client) await client.destroy().catch(() => {});
   process.exit(0);
 }
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 process.on('unhandledRejection', reason => {
   const message = reason instanceof Error ? reason.message : String(reason);
+  if (/^(auth timeout|ready timeout)$/i.test(message.trim())) {
+    console.error('WhatsApp Web initialization timed out; restarting the client.');
+    connected = false;
+    account = null;
+    qrValue = null;
+    qrDataUrl = null;
+    qrCreatedAt = null;
+    connectionState = 'reconnecting';
+    clearQrExpiryTimer();
+    scheduleReconnect({ resetSession: true });
+    return;
+  }
+  if (logoutRecoveryActive && /EBUSY|EPERM/i.test(message) && /lockfile/i.test(message)) {
+    console.error('WhatsApp logout is waiting for Windows to release its session lock; recovery will continue after cleanup.');
+    return;
+  }
   if (/ENOTEMPTY.*\.wwebjs_auth.*session|ENOTEMPTY.*session/i.test(message) && logoutRecoveryActive) {
     console.error('WhatsApp logout is still removing its local session; recovery will continue after cleanup.');
     return;

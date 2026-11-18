@@ -39,8 +39,8 @@ class DashboardFeatureTest extends TestCase
             $response = $this->actingAs($user)->get('/dashboard')
                 ->assertOk()
                 ->assertSee('Ayu '.str($roleName)->headline())
-                ->assertSee('1 Produk')
-                ->assertSee('1 lokasi aktif')
+                ->assertSee('1 produk aktif')
+                ->assertSee('1 lokasi')
                 ->assertSee('Saldo stok belum dicatat')
                 ->assertDontSee('Daging Sapi Wagyu')
                 ->assertDontSee('Tambah Pengguna');
@@ -51,7 +51,7 @@ class DashboardFeatureTest extends TestCase
         }
     }
 
-    public function test_super_admin_uses_existing_dashboard_layout_with_admin_content_and_add_user_page(): void
+    public function test_super_admin_uses_existing_dashboard_layout_with_admin_content(): void
     {
         $this->seed(RolePermissionSeeder::class);
         $admin = User::factory()->create(['name' => 'Super Admin Utama']);
@@ -60,7 +60,7 @@ class DashboardFeatureTest extends TestCase
         $this->actingAs($admin)->get('/dashboard')
             ->assertOk()
             ->assertSee('Administrasi Sistem')
-            ->assertSee('PENGGUNA AKTIF')
+            ->assertSee('Pengguna Aktif')
             ->assertDontSee('Fokus Staff Gudang');
     }
 
@@ -68,6 +68,6 @@ class DashboardFeatureTest extends TestCase
     {
         $this->get('/login')->assertOk()
             ->assertSee('login.webp', false)
-            ->assertSee('Akses Terenkripsi SSL');
+            ->assertSee('autocomplete="current-password"', false);
     }
 }

@@ -26,7 +26,19 @@ class StockOpnameService
             $balances = StockMovement::where('location_id', $location->id)
                 ->selectRaw("product_id, SUM(CASE WHEN type = 'in' THEN quantity ELSE -quantity END) as balance")
                 ->groupBy('product_id')->pluck('balance', 'product_id');
-            $products = Product::where('is_active', true)->orderBy('id')->get(['id']);
+            $scope = $data['period_type'] === 'weekly' ? ($data['count_scope'] ?? 'full') : 'full';
+            $productIds = collect($data['product_ids'] ?? [])->map(fn ($id) => (int) $id)->unique()->values();
+            $productsQuery = Product::where('is_active', true)->orderBy('id');
+            if ($scope === 'partial') {
+                if ($productIds->isEmpty()) {
+                    throw ValidationException::withMessages(['product_ids' => 'Pilih minimal satu produk untuk cycle count mingguan.']);
+                }
+                $productsQuery->whereIn('id', $productIds);
+            }
+            $products = $productsQuery->get(['id']);
+            if ($scope === 'partial' && $products->count() !== $productIds->count()) {
+                throw ValidationException::withMessages(['product_ids' => 'Pilihan cycle count memuat produk yang tidak aktif atau tidak valid. Muat ulang halaman.']);
+            }
             if ($products->isEmpty()) {
                 throw ValidationException::withMessages(['location_id' => 'Tambahkan produk aktif sebelum memulai Stock Opname.']);
             }
@@ -46,6 +58,7 @@ class StockOpnameService
                 'reference' => $opname->reference,
                 'location_id' => $location->id,
                 'period_type' => $opname->period_type,
+                'count_scope' => $scope,
                 'product_count' => $products->count(),
             ]);
             return $opname;
@@ -78,6 +91,31 @@ class StockOpnameService
             $cutoffId = StockMovement::where('location_id', $opname->location_id)->max('id') ?? 0;
             $opname->forceFill(['status' => 'pending_approval', 'submitted_at' => now(), 'movement_cutoff_id' => $cutoffId])->save();
             $this->auditLogger->record('stock_opname.submitted', $opname, ['item_count' => $items->count()]);
+            return $opname;
+        });
+    }
+
+    public function cancel(StockOpname $opname, string $reason): StockOpname
+    {
+        return DB::transaction(function () use ($opname, $reason) {
+            $opname = StockOpname::whereKey($opname->id)->lockForUpdate()->firstOrFail();
+            if ($opname->status !== 'counting') {
+                throw ValidationException::withMessages(['opname' => 'Hanya sesi yang masih dihitung yang dapat dibatalkan.']);
+            }
+            Location::whereKey($opname->location_id)->lockForUpdate()->firstOrFail();
+            if ((int) $opname->counted_by !== (int) auth()->id() && ! auth()->user()->hasRole('super_admin')) {
+                throw ValidationException::withMessages(['opname' => 'Hanya penghitung sesi atau Super Admin yang dapat membatalkan sesi.']);
+            }
+
+            $reviewNote = 'Sesi dibatalkan: '.trim($reason);
+            $opname->forceFill(['status' => 'rejected', 'review_note' => $reviewNote])->save();
+            $this->auditLogger->record('stock_opname.cancelled', $opname, [
+                'reference' => $opname->reference,
+                'cancelled_by' => auth()->id(),
+                'reason' => trim($reason),
+                'movement_created' => false,
+            ]);
+
             return $opname;
         });
     }

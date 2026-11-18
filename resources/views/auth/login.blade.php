@@ -3,15 +3,16 @@
 @section('title', 'Masuk ke Sistem Inventory - Technolife')
 
 @section('content')
-<main class="min-h-screen w-full flex flex-col items-center justify-center p-4 relative font-inter" style="background-image: url('{{ asset('login.webp') }}'); background-size: 100% 100%; background-repeat: no-repeat; background-position: center;">
+<main class="relative flex min-h-dvh w-full flex-col items-center justify-center overflow-hidden bg-[#F8F7F6] p-4 font-inter">
+    <div aria-hidden="true" class="fixed inset-0 bg-center bg-no-repeat" style="background-image: url('{{ asset('login.webp') }}'); background-size: cover;"></div>
     <!-- Centered Login Card -->
     <article class="w-full max-w-[440px] bg-white border border-[#EAEAEA] rounded-2xl p-8 md:p-10 shadow-md transition-all relative z-10">
         <!-- Header Inside Card -->
         <header class="text-center">
             <!-- Logo -->
             <div class="mb-4">
-                <a href="{{ route('login') }}" class="inline-flex items-center font-poppins font-semibold text-2xl tracking-tight text-[#1B1C1C]" aria-label="Technolife">
-                    Technolife<span class="text-[#DC143C] ml-0.5 leading-none">•</span>
+                <a href="{{ route('login') }}" class="inline-flex items-center justify-center" aria-label="Technolife">
+                    <img src="{{ asset('logo.webp') }}" alt="Technolife" class="h-24 w-24 object-contain">
                 </a>
             </div>
 
@@ -37,6 +38,12 @@
                 <div class="flex-1">
                     <p class="font-medium">{{ $errors->first() }}</p>
                 </div>
+            </div>
+        @endif
+
+        @if (session('status'))
+            <div role="status" class="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                {{ session('status') }}
             </div>
         @endif
 
@@ -143,14 +150,6 @@
             </button>
         </form>
     </article>
-
-    <!-- Bottom Security Badge -->
-    <aside class="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-slate-500 bg-white/80 backdrop-blur-xs px-4 py-1.5 rounded-full border border-slate-200/60 shadow-xs select-none max-w-full text-center">
-        <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-        </svg>
-        <span>Akses Terenkripsi SSL 256-Bit • Khusus Staf Operasional Technolife</span>
-    </aside>
 
 </main>
 

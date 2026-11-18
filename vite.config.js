@@ -10,9 +10,12 @@ export default defineConfig({
         }),
         tailwindcss(),
     ],
+    optimizeDeps: {
+        include: ['xlsx-js-style', 'jspdf', 'jspdf-autotable'],
+    },
     server: {
         watch: {
-            ignored: ['**/storage/framework/views/**'],
+            ignored: ['**/storage/framework/views/**', '**/whatsapp-service/**'],
         },
     },
 });

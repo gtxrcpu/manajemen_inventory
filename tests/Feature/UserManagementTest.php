@@ -58,6 +58,7 @@ class UserManagementTest extends TestCase
     public function test_super_admin_can_assign_the_new_confirmed_roles_without_admin_permission(): void
     {
         $admin = $this->userWithRole('super_admin');
+        $outlet = \App\Models\Location::create(['code' => 'OT-USER-TEST', 'name' => 'Outlet User Test', 'type' => 'outlet', 'is_active' => true]);
 
         foreach ([
             'pic_outlet' => ['name' => 'PIC Outlet User', 'email' => 'pic@example.com'],
@@ -69,6 +70,7 @@ class UserManagementTest extends TestCase
                 'password' => 'secure-password-123',
                 'password_confirmation' => 'secure-password-123',
                 'role_ids' => [$role->id],
+                ...($roleName === 'pic_outlet' ? ['location_id' => $outlet->id] : []),
             ])->assertRedirect(route('admin.users.index'));
 
             $user = User::where('email', $attributes['email'])->firstOrFail();
@@ -206,6 +208,7 @@ class UserManagementTest extends TestCase
     {
         $admin = $this->userWithRole('super_admin');
         $staffRole = Role::where('name', 'staff_gudang')->firstOrFail();
+        $warehouse = \App\Models\Location::create(['code' => 'WH-SELF-TEST', 'name' => 'Gudang Self Test', 'type' => 'warehouse', 'is_active' => true]);
 
         $this->actingAs($admin)->put(route('admin.users.update', $admin), [
             'name' => $admin->name,
@@ -213,6 +216,7 @@ class UserManagementTest extends TestCase
             'password' => '',
             'password_confirmation' => '',
             'role_ids' => [$staffRole->id],
+            'location_id' => $warehouse->id,
         ])->assertSessionHasErrors('role_ids');
 
         $this->patch(route('admin.users.status', $admin))->assertSessionHasErrors('user');

@@ -3,14 +3,14 @@
 @section('mobile-content')
 <main class="w-full p-4"><a href="{{ route('inventory.stock-in.index') }}" class="text-sm font-semibold text-primary">← Kembali ke Stock In</a><h1 class="mt-3 font-poppins text-xl font-semibold">Catat barang masuk</h1><p class="mt-1 text-xs text-secondary">Saldo bertambah setelah penerimaan dikonfirmasi.</p>
 @if($errors->any())<div class="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700"><ul class="list-inside list-disc">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
-<form id="stock-in-form-m" data-stock-in-form method="POST" action="{{ route('inventory.stock-in.store') }}" class="mt-4 space-y-4 rounded-2xl border border-outline bg-white p-4">@csrf
+<form id="stock-in-form-m" data-stock-in-form data-confirm-title="Konfirmasi barang masuk?" data-confirm-message="Setelah disimpan, jumlah yang diterima akan langsung menambah saldo stok. Pastikan tanggal dan jumlahnya sudah benar." data-confirm-button="Ya, catat barang masuk" method="POST" action="{{ route('inventory.stock-in.store') }}" class="mt-4 space-y-4 rounded-2xl border border-outline bg-white p-4">@csrf
 @include('inventory.stock-in._fields', ['suffix'=>'m'])
 </form></main>
 @endsection
 @section('desktop-content')
 <section class="mx-auto max-w-4xl space-y-5"><a href="{{ route('inventory.stock-in.index') }}" class="text-sm font-semibold text-[#DC143C]">← Kembali ke Stock In</a><div><h1 class="font-poppins text-2xl font-semibold">Catat barang masuk</h1><p class="mt-1 text-sm text-gray-500">Saldo bertambah setelah penerimaan dikonfirmasi.</p></div>
 @if($errors->any())<div class="rounded-xl bg-red-50 p-4 text-sm text-red-700"><ul class="list-inside list-disc">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
-<form id="stock-in-form-d" data-stock-in-form method="POST" action="{{ route('inventory.stock-in.store') }}" class="space-y-5 rounded-2xl border border-[#EAEAEA] bg-white p-6">@csrf
+<form id="stock-in-form-d" data-stock-in-form data-confirm-title="Konfirmasi barang masuk?" data-confirm-message="Setelah disimpan, jumlah yang diterima akan langsung menambah saldo stok. Pastikan tanggal dan jumlahnya sudah benar." data-confirm-button="Ya, catat barang masuk" method="POST" action="{{ route('inventory.stock-in.store') }}" class="space-y-5 rounded-2xl border border-[#EAEAEA] bg-white p-6">@csrf
 @include('inventory.stock-in._fields', ['suffix'=>'d'])
 </form></section>
 @endsection
@@ -32,8 +32,5 @@
         target.appendChild(row);
     }
     document.querySelectorAll('[data-stock-in-add]').forEach(button => button.addEventListener('click', () => addStockInRow(button.dataset.target, button.dataset.suffix)));
-    document.querySelectorAll('[data-stock-in-form]').forEach(form => form.addEventListener('submit', event => {
-        if (!confirm('Konfirmasi penerimaan ini? Saldo stok akan langsung bertambah.')) event.preventDefault();
-    }));
     document.querySelectorAll('[data-stock-in-rows]').forEach(el => addStockInRow(el.id, el.dataset.suffix));
 @endsection

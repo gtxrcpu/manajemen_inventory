@@ -11,6 +11,7 @@ use App\Models\WhatsAppAlertLog;
 use App\Jobs\SendLowStockWhatsAppAlert;
 use App\Notifications\LowStockNotification;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class LowStockAlertService
 {
@@ -58,19 +59,20 @@ class LowStockAlertService
 
     public function activeForUser(User $user)
     {
+        $locationIds = $user->isLocationScopedUser() ? $user->assignedLocationIds() : [];
         return LowStockAlert::active()->with(['product.unit', 'location'])
-            ->when($user->hasRole('pic_outlet'), fn ($query) => $query->where('location_id', $user->location_id))
+            ->when($user->isLocationScopedUser(), fn ($query) => $query->whereIn('location_id', $locationIds))
             ->latest('triggered_at');
     }
 
     public function queueActiveWhatsAppAlerts(): int
     {
         $settings = WhatsAppAlertSetting::query()->first();
-        if (! $settings?->enabled || ! $settings->risk_accepted_at || empty($settings->recipients)) return 0;
+        if (! $settings?->low_stock_enabled || ! $settings->risk_accepted_at) return 0;
 
         $queued = 0;
         foreach (LowStockAlert::active()->get() as $alert) {
-            foreach ($settings->recipients as $phone) {
+            foreach ($this->whatsAppRecipients($alert) as $phone) {
                 $queued += (int) $this->queueWhatsAppAlert($alert, $phone);
             }
         }
@@ -82,21 +84,100 @@ class LowStockAlertService
     {
         $location = $alert->location;
         $recipients = User::query()->where('is_active', true)->where(function ($query) use ($location) {
-            $query->whereHas('roles', fn ($roles) => $roles->whereIn('name', ['super_admin', 'staff_gudang']));
+            $query->whereHas('roles', fn ($roles) => $roles->where('name', 'super_admin'));
             if ($location->type === 'outlet') {
-                $query->orWhere(fn ($pic) => $pic->where('location_id', $location->id)
-                    ->whereHas('roles', fn ($roles) => $roles->where('name', 'pic_outlet')));
+                $query->orWhere(fn ($outletUser) => $outletUser->where(function ($scope) use ($location) {
+                    $scope->where('location_id', $location->id);
+                    $scope->orWhereIn('id', $this->activeSubstituteIds((int) $location->id));
+                })->whereHas('roles', fn ($roles) => $roles->whereIn('name', ['pic_outlet', 'staff_outlet'])));
+            } elseif ($location->type === 'warehouse') {
+                $query->orWhere(fn ($warehouseStaff) => $warehouseStaff->where('location_id', $location->id)
+                    ->whereHas('roles', fn ($roles) => $roles->where('name', 'staff_gudang')));
             }
         })->get();
 
         foreach ($recipients as $recipient) $recipient->notify(new LowStockNotification($alert));
 
         $settings = WhatsAppAlertSetting::query()->first();
-        if ($settings?->enabled && $settings->risk_accepted_at) {
-            foreach ($settings->recipients ?? [] as $phone) {
+        if ($settings?->low_stock_enabled && $settings->risk_accepted_at) {
+            foreach ($this->whatsAppRecipients($alert) as $phone) {
                 $this->queueWhatsAppAlert($alert, $phone);
             }
         }
+    }
+
+    public function isWhatsAppRecipientForAlert(LowStockAlert $alert, string $phone): bool
+    {
+        $mappedRecipients = WhatsAppAlertSetting::query()->first()?->location_recipients ?? [];
+        $warehouseStaffRecipients = WhatsAppAlertSetting::query()->first()?->warehouse_staff_recipients ?? [];
+        if (in_array($phone, $mappedRecipients[(string) $alert->location_id] ?? [], true)
+            || in_array($phone, $warehouseStaffRecipients[(string) $alert->location_id] ?? [], true)) return true;
+        if ($alert->location?->type === 'warehouse') {
+            return User::query()->where('is_active', true)->where('location_id', $alert->location_id)
+                ->where('whatsapp_phone', $phone)
+                ->whereHas('roles', fn ($roles) => $roles->where('name', 'staff_gudang'))->exists();
+        }
+        if ($alert->location?->type !== 'outlet') return false;
+
+        return User::query()->where('is_active', true)->where(function ($query) use ($alert) {
+                $query->where('location_id', $alert->location_id);
+                $query->orWhereIn('id', $this->activeSubstituteIds((int) $alert->location_id));
+            })
+            ->where('whatsapp_phone', $phone)
+            ->whereHas('roles', fn ($roles) => $roles->whereIn('name', ['pic_outlet', 'staff_outlet']))
+            ->exists();
+    }
+
+    /** @return array<int, array{name: string, whatsapp_phone: string}> */
+    public function outletWhatsAppRecipientsForLocation(int $locationId): array
+    {
+        $substituteIds = $this->activeSubstituteIds($locationId);
+
+        return User::query()->where('is_active', true)->whereNotNull('whatsapp_phone')
+            ->where(function ($query) use ($locationId, $substituteIds) {
+                $query->where('location_id', $locationId)->orWhereIn('id', $substituteIds);
+            })
+            ->whereHas('roles', fn ($roles) => $roles->whereIn('name', ['pic_outlet', 'staff_outlet']))
+            ->get(['id', 'name', 'whatsapp_phone'])->map(fn (User $user) => [
+                'name' => $user->name,
+                'role_label' => $user->hasRole('pic_outlet') ? 'PIC Outlet' : 'Staff Outlet',
+                'whatsapp_phone' => $user->whatsapp_phone,
+            ])->all();
+    }
+
+    private function whatsAppRecipients(LowStockAlert $alert): array
+    {
+        $settings = WhatsAppAlertSetting::query()->first();
+        $recipients = $settings?->location_recipients[(string) $alert->location_id] ?? [];
+        if ($alert->location?->type === 'outlet') {
+            $picPhones = collect($this->outletWhatsAppRecipientsForLocation((int) $alert->location_id))
+                ->pluck('whatsapp_phone')->all();
+            $recipients = array_merge($recipients, $picPhones);
+        } elseif ($alert->location?->type === 'warehouse') {
+            $staffManual = $settings?->warehouse_staff_recipients[(string) $alert->location_id] ?? [];
+            $recipients = array_merge($recipients, $staffManual);
+            $warehousePhones = User::query()->where('is_active', true)->whereNotNull('whatsapp_phone')
+                ->where('location_id', $alert->location_id)
+                ->whereHas('roles', fn ($roles) => $roles->where('name', 'staff_gudang'))
+                ->pluck('whatsapp_phone')->all();
+            $recipients = array_merge($recipients, $warehousePhones);
+        }
+
+        return array_values(array_unique(array_filter($recipients)));
+    }
+
+    private function activeSubstituteIds(int $locationId): array
+    {
+        if (! Schema::hasTable('pic_substitute_assignments')) return [];
+
+        $candidateIds = DB::table('pic_substitute_assignments')->where('location_id', $locationId)
+            ->whereNull('revoked_at')->where('starts_at', '<=', now())->where('ends_at', '>', now())
+            ->pluck('substitute_pic_user_id');
+
+        return User::query()->whereIn('id', $candidateIds)->where('is_active', true)
+            ->whereHas('roles', fn ($roles) => $roles->where('name', 'pic_outlet'))
+            ->get()->filter(fn (User $user) => $user->canAccessOutletLocation($locationId))
+            ->pluck('id')->map(fn ($id) => (int) $id)->all();
     }
 
     private function queueWhatsAppAlert(LowStockAlert $alert, string $phone): bool

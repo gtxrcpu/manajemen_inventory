@@ -14,10 +14,10 @@
             <h1 class="font-poppins text-lg font-semibold text-on-surface">Pengguna</h1>
             <p class="text-xs text-secondary mt-0.5">Kelola akun dan role akses</p>
         </div>
-        <a href="{{ route('admin.users.create') }}"
-           class="h-9 px-3.5 bg-primary text-on-primary text-xs font-semibold rounded-xl flex items-center gap-1.5 shadow-sm active:scale-95 transition-transform shrink-0">
-            <span class="material-symbols-outlined text-[16px]">add</span>Tambah
-        </a>
+        <div class="flex shrink-0 gap-2">
+            <a href="{{ route('admin.pic-substitutes.index') }}" class="h-9 rounded-xl border border-outline px-2.5 text-[11px] font-semibold flex items-center">PIC Pengganti</a>
+            <a href="{{ route('admin.users.create') }}" class="h-9 rounded-xl bg-primary px-3.5 text-xs font-semibold text-on-primary flex items-center gap-1.5 shadow-sm"><span class="material-symbols-outlined text-[16px]">add</span>Tambah</a>
+        </div>
     </div>
 
     <!-- Flash -->
@@ -76,7 +76,7 @@
                     @endif
                 </div>
                 <p class="text-xs text-secondary truncate mt-0.5">{{ $user->email }}</p>
-                @if($user->location)<p class="text-[11px] text-secondary mt-0.5">Outlet: {{ $user->location->name }}</p>@endif
+                @if($user->location)<p class="text-[11px] text-secondary mt-0.5">{{ $user->location->type === 'warehouse' ? 'Gudang' : 'Outlet' }}: {{ $user->location->name }}</p>@endif
                 <div class="flex flex-wrap gap-1 mt-1.5">
                     @forelse($user->roles as $role)
                         <span class="px-2 py-0.5 rounded-full bg-surface-container text-secondary text-[10px] font-medium">{{ $role->label }}</span>
@@ -102,7 +102,9 @@
                     </button>
                 </form>
                 <form method="POST" action="{{ route('admin.users.destroy', $user) }}" class="flex-1"
-                      onsubmit="return confirm('Pindahkan akun ini ke daftar terhapus?')">
+                      data-confirm-title="Hapus akun ini?"
+                      data-confirm-message="Akun akan dipindahkan ke daftar terhapus dan tidak dapat digunakan untuk masuk."
+                      data-confirm-button="Ya, hapus akun" data-confirm-tone="danger">
                     @csrf @method('DELETE')
                     <button class="w-full py-2.5 text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors">Hapus</button>
                 </form>
@@ -145,6 +147,9 @@
             <a href="{{ route('admin.roles.index') }}"
                class="inline-flex items-center gap-1.5 px-3 py-2 border border-[#EAEAEA] rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
                 <span class="material-symbols-outlined text-[16px]">admin_panel_settings</span>Role &amp; Permission
+            </a>
+            <a href="{{ route('admin.pic-substitutes.index') }}" class="inline-flex items-center gap-1.5 rounded-lg border border-[#EAEAEA] px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                <span class="material-symbols-outlined text-[16px]">group</span>PIC Pengganti
             </a>
             <a href="{{ route('admin.users.create') }}"
                class="inline-flex items-center gap-2 px-4 py-2 bg-[#DC143C] text-white text-sm font-semibold rounded-xl shadow-sm hover:bg-[#c01230] transition-colors">
@@ -227,7 +232,7 @@
                                     <div>
                                         <div class="font-semibold text-sm text-gray-900">{{ $user->name }}</div>
                                         <div class="text-xs text-gray-400 mt-0.5">{{ $user->email }}</div>
-                                        @if($user->location)<div class="text-[11px] text-gray-500 mt-0.5">Outlet: {{ $user->location->name }}</div>@endif
+                                        @if($user->location)<div class="text-[11px] text-gray-500 mt-0.5">{{ $user->location->type === 'warehouse' ? 'Gudang' : 'Outlet' }}: {{ $user->location->name }}</div>@endif
                                     </div>
                                 </div>
                             </td>
@@ -275,7 +280,9 @@
                                             </button>
                                         </form>
                                         <form method="POST" action="{{ route('admin.users.destroy', $user) }}"
-                                              onsubmit="return confirm('Pindahkan akun ini ke daftar terhapus?')">
+                                              data-confirm-title="Hapus akun ini?"
+                                              data-confirm-message="Akun akan dipindahkan ke daftar terhapus dan tidak dapat digunakan untuk masuk."
+                                              data-confirm-button="Ya, hapus akun" data-confirm-tone="danger">
                                             @csrf @method('DELETE')
                                             <button class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#FFF1F0] text-[#DC143C] text-[11px] font-semibold hover:bg-[#FFE4E1] transition-colors">
                                                 <span class="material-symbols-outlined text-[13px]">delete</span>Hapus

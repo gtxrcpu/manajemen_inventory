@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class StockOut extends Model
 {
-    protected $fillable = ['reference', 'destination', 'location_id', 'issued_by', 'issued_at', 'notes'];
+    protected $fillable = ['reference', 'destination', 'purpose', 'location_id', 'issued_by', 'issued_at', 'notes'];
 
     protected function casts(): array { return ['issued_at' => 'date']; }
 

@@ -105,7 +105,7 @@ class AuthenticationTest extends TestCase
     {
         $this->seed(RolePermissionSeeder::class);
 
-        foreach (['super_admin', 'staff_gudang', 'pic_outlet', 'management', 'purchasing', 'finance'] as $roleName) {
+        foreach (['super_admin', 'staff_gudang', 'staff_outlet', 'pic_outlet', 'pic_warehouse', 'management', 'purchasing', 'finance'] as $roleName) {
             $user = User::factory()->create();
             $user->roles()->attach(Role::where('name', $roleName)->firstOrFail());
 

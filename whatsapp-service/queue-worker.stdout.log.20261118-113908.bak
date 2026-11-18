@@ -1,0 +1,4 @@
+  2026-11-18 04:02:21 App\Jobs\SendTransferReceiptWhatsAppAlert .............................................. RUNNING
+  2026-11-18 04:02:22 App\Jobs\SendTransferReceiptWhatsAppAlert ........................................ 895.64ms DONE
+  2026-11-18 04:04:45 App\Jobs\SendLowStockWhatsAppAlert ..................................................... RUNNING
+  2026-11-18 04:04:45 App\Jobs\SendLowStockWhatsAppAlert ............................................... 595.91ms DONE

@@ -17,10 +17,12 @@
             <h1 class="font-poppins text-xl font-semibold text-on-surface">Pengeluaran Barang</h1>
             <p class="text-xs text-secondary mt-0.5">{{ $issues->total() }} transaksi barang keluar tercatat</p>
         </div>
-        <a href="{{ route('inventory.stock-out.create') }}"
-           class="h-9 px-3.5 bg-primary text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 shadow-sm active:scale-95 transition-transform shrink-0">
-            <span class="material-symbols-outlined text-[16px]">add</span>Catat
-        </a>
+        <div class="flex shrink-0 gap-2">
+            @if(auth()->user()->hasRole('super_admin') || auth()->user()->hasPermissionTo('disposal.manage') || auth()->user()->hasPermissionTo('disposal.approve'))
+                <a href="{{ route('inventory.stock-disposals.index') }}" class="h-9 px-2.5 border border-outline text-xs font-semibold rounded-xl flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">delete_sweep</span><span>Disposal</span></a>
+            @endif
+            <a href="{{ route('inventory.stock-out.create') }}" class="h-9 px-3.5 bg-primary text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 shadow-sm active:scale-95 transition-transform"><span class="material-symbols-outlined text-[16px]">add</span>Catat</a>
+        </div>
     </div>
 
     <!-- Alert Status -->
@@ -101,7 +103,7 @@
 
             <div>
                 <select name="location_id" class="w-full h-9 bg-surface-container-lowest border border-outline rounded-xl px-2.5 text-xs text-on-surface outline-none focus:border-primary">
-                    <option value="">Semua Lokasi Asal</option>
+                    @unless(auth()->user()->isLocationScopedUser())<option value="">Semua Lokasi Asal</option>@endunless
                     @foreach($locations as $loc)
                         <option value="{{ $loc->id }}" @selected(($filters['location_id'] ?? '') == $loc->id)>{{ $loc->name }}</option>
                     @endforeach
@@ -241,6 +243,9 @@
         </div>
 
         <div class="flex items-center gap-2.5 shrink-0">
+            @if(auth()->user()->hasRole('super_admin') || auth()->user()->hasPermissionTo('disposal.manage') || auth()->user()->hasPermissionTo('disposal.approve'))
+                <a href="{{ route('inventory.stock-disposals.index') }}" class="inline-flex items-center gap-1.5 px-3.5 py-2 border border-[#EAEAEA] bg-white hover:bg-gray-50 text-gray-700 text-xs font-semibold rounded-xl"><span class="material-symbols-outlined text-[16px]">delete_sweep</span><span>Write-off / Retur</span></a>
+            @endif
             <a href="{{ route('inventory.stock.index') }}"
                class="inline-flex items-center gap-1.5 px-3.5 py-2 border border-[#EAEAEA] bg-white hover:bg-gray-50 text-gray-700 text-xs font-semibold rounded-xl shadow-2xs transition-colors">
                 <span class="material-symbols-outlined text-[16px]">inventory_2</span>
@@ -350,7 +355,7 @@
 
                 <!-- Location Filter -->
                 <select name="location_id" class="h-9 bg-white border border-[#EAEAEA] rounded-lg px-3 text-xs text-gray-700 focus:border-[#DC143C] focus:ring-1 focus:ring-[#DC143C]/20 outline-none transition-all cursor-pointer">
-                    <option value="">Semua Lokasi Gudang Asal</option>
+                    @unless(auth()->user()->isLocationScopedUser())<option value="">Semua Lokasi Gudang Asal</option>@endunless
                     @foreach($locations as $loc)
                         <option value="{{ $loc->id }}" @selected(($filters['location_id'] ?? '') == $loc->id)>{{ $loc->name }}</option>
                     @endforeach
@@ -417,7 +422,7 @@
                         <tr class="bg-[#FBF9F8] border-b border-[#EAEAEA] text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
                             <th class="py-3 px-4">No. Referensi</th>
                             <th class="py-3 px-4">Tanggal Keluar</th>
-                            <th class="py-3 px-4">Tujuan Pengeluaran</th>
+                            <th class="py-3 px-4">Tujuan / Jenis</th>
                             <th class="py-3 px-4">Lokasi Asal</th>
                             <th class="py-3 px-4">Rincian Barang</th>
                             <th class="py-3 px-4">Petugas</th>
@@ -458,6 +463,7 @@
                                         <span class="material-symbols-outlined text-[15px] text-rose-600">near_me</span>
                                         <span class="truncate max-w-[180px]">{{ $issue->destination }}</span>
                                     </div>
+                                    <span class="mt-1 block text-[10px] text-gray-500">{{ ['sale' => 'Penjualan outlet', 'internal_use' => 'Pemakaian internal', 'sample' => 'Sampel / promosi', 'other' => 'Lainnya'][$issue->purpose] ?? 'Jenis belum diketahui (transaksi lama)' }}</span>
                                 </td>
 
                                 <!-- Lokasi Asal -->

@@ -10,11 +10,11 @@ class Product extends Model
 {
     use SoftDeletes;
 
-    protected $fillable = ['sku', 'name', 'category_id', 'unit_id', 'description', 'image_path', 'is_active'];
+    protected $fillable = ['sku', 'name', 'category_id', 'unit_id', 'description', 'image_path', 'is_active', 'requires_expiry_tracking'];
 
     protected function casts(): array
     {
-        return ['is_active' => 'boolean'];
+        return ['is_active' => 'boolean', 'requires_expiry_tracking' => 'boolean'];
     }
 
     public function category(): BelongsTo

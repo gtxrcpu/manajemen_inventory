@@ -1,0 +1,10 @@
+WhatsApp Web error: The Content Security Policy directive 'upgrade-insecure-requests' is ignored when delivered in a report-only policy.
+WhatsApp Web error: Failed to load resource: the server responded with a status of 403 ()
+WhatsApp Web error: Failed to load resource: the server responded with a status of 403 ()
+WhatsApp Web error: Failed to load resource: the server responded with a status of 403 ()
+WhatsApp Web error: ErrorUtils caught an error:
+
+Failed to find a Haste-supplied config for the QPL event identified by token `106`.
+
+Subsequent non-fatal errors won't be logged; see https://fburl.com/debugjs. [object Object]
+WhatsApp Web error: Failed to load resource: the server responded with a status of 403 ()

@@ -123,10 +123,22 @@
             @endforeach
 
             @if($resource === 'products')
+            <div class="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                <input type="hidden" name="requires_expiry_tracking" value="0">
+                <input id="requires_expiry_tracking_m" type="checkbox" name="requires_expiry_tracking" value="1" class="mt-1" @checked((bool) old('requires_expiry_tracking', $item?->requires_expiry_tracking ?? false))>
+                <label for="requires_expiry_tracking_m" class="text-sm"><b>Wajib nomor batch &amp; expiry</b><span class="mt-1 block text-xs text-secondary">Aktifkan hanya untuk SKU yang memang memiliki masa kedaluwarsa; data lama tetap kompatibel.</span></label>
+            </div>
+            @endif
+
+            @if($resource === 'products')
             <div class="flex flex-col gap-2">
                 <label for="image_m" class="text-sm font-semibold text-on-surface">Foto Produk</label>
-                @if($item?->image_path)<img src="{{ asset('storage/'.$item->image_path) }}" alt="{{ $item->name }}" class="h-28 w-28 rounded-xl object-cover">@endif
-                <input id="image_m" name="image" type="file" accept="image/jpeg,image/png,image/webp" class="w-full text-sm" />
+                <label for="image_m" tabindex="0" role="button" class="group relative flex h-40 w-40 cursor-pointer items-center justify-center overflow-hidden rounded-2xl border border-outline bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary">
+                    <img id="image-preview-m" src="{{ $item?->image_path ? asset('storage/'.$item->image_path) : asset('images/product-placeholder.svg') }}" alt="Pratinjau foto produk" class="h-full w-full object-cover">
+                    <span class="absolute inset-x-0 bottom-0 bg-black/60 px-2 py-2 text-center text-[11px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100">Klik untuk pilih/ganti foto</span>
+                </label>
+                <input id="image_m" name="image" type="file" accept="image/jpeg,image/png,image/webp" class="sr-only" />
+                <p id="image-name-m" class="text-[11px] text-secondary">Klik foto untuk memilih gambar.</p>
                 <p class="text-[11px] text-secondary">JPG, PNG, atau WebP. Maksimal 5 MB. Otomatis dikonversi ke WebP (maks. 1 MB).</p>
                 @error('image')<p class="text-xs text-red-600">{{ $message }}</p>@enderror
             </div>
@@ -293,10 +305,22 @@
             @endforeach
 
             @if($resource === 'products')
+            <div class="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <input type="hidden" name="requires_expiry_tracking" value="0">
+                <input id="requires_expiry_tracking_d" type="checkbox" name="requires_expiry_tracking" value="1" class="mt-1" @checked((bool) old('requires_expiry_tracking', $item?->requires_expiry_tracking ?? false))>
+                <label for="requires_expiry_tracking_d" class="text-sm"><b>Wajib nomor batch &amp; expiry</b><span class="mt-1 block text-xs text-gray-600">Aktifkan hanya untuk SKU yang memang memiliki masa kedaluwarsa; data lama tetap kompatibel.</span></label>
+            </div>
+            @endif
+
+            @if($resource === 'products')
             <div class="flex flex-col gap-2">
                 <label for="image_d" class="text-sm font-semibold text-gray-700">Foto Produk</label>
-                @if($item?->image_path)<img src="{{ asset('storage/'.$item->image_path) }}" alt="{{ $item->name }}" class="h-32 w-32 rounded-xl object-cover border border-[#EAEAEA]">@endif
-                <input id="image_d" name="image" type="file" accept="image/jpeg,image/png,image/webp" class="w-full rounded-lg border border-[#EAEAEA] bg-[#F5F5FA] p-2 text-sm" />
+                <label for="image_d" tabindex="0" role="button" class="group relative flex h-64 w-64 cursor-pointer items-center justify-center overflow-hidden rounded-2xl border border-[#EAEAEA] bg-[#F5F5FA] focus:outline-none focus:ring-2 focus:ring-[#DC143C]">
+                    <img id="image-preview-d" src="{{ $item?->image_path ? asset('storage/'.$item->image_path) : asset('images/product-placeholder.svg') }}" alt="Pratinjau foto produk" class="h-full w-full object-cover">
+                    <span class="absolute inset-x-0 bottom-0 bg-black/60 px-3 py-3 text-center text-xs font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100">Klik untuk pilih/ganti foto</span>
+                </label>
+                <input id="image_d" name="image" type="file" accept="image/jpeg,image/png,image/webp" class="sr-only" />
+                <p id="image-name-d" class="text-xs text-gray-500">Klik foto untuk memilih gambar.</p>
                 <p class="text-xs text-gray-400">JPG, PNG, atau WebP. Maksimal 5 MB. Otomatis dikonversi ke WebP (maks. 1 MB).</p>
                 @error('image')<p class="text-xs text-red-600">{{ $message }}</p>@enderror
             </div>
@@ -347,7 +371,9 @@
                 <p class="text-xs text-gray-400 mt-0.5">Data akan dihapus permanen dari sistem</p>
             </div>
             <form method="POST" action="{{ route('admin.master-data.destroy', [$resource, $item->id]) }}"
-                  onsubmit="return confirm('Hapus {{ $config['label'] }} ini secara permanen?')">
+                  data-confirm-title="Hapus {{ $config['label'] }}?"
+                  data-confirm-message="{{ $config['label'] }} ini akan dihapus permanen dari sistem. Tindakan ini tidak dapat dibatalkan."
+                  data-confirm-button="Ya, hapus permanen" data-confirm-tone="danger">
                 @csrf @method('DELETE')
                 <button type="submit"
                     class="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-red-200 text-red-600 text-sm font-semibold rounded-lg hover:bg-red-50 transition-colors">
@@ -362,6 +388,34 @@
 @endsection
 
 @section('page-scripts')
+    @if($resource === 'products')
+    ['m', 'd'].forEach(suffix => {
+        const input = document.getElementById(`image_${suffix}`);
+        const preview = document.getElementById(`image-preview-${suffix}`);
+        const filename = document.getElementById(`image-name-${suffix}`);
+        const pickerLabel = document.querySelector(`label[for="image_${suffix}"][role="button"]`);
+        if (!input || !preview || !filename || !pickerLabel) return;
+
+        pickerLabel.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                input.click();
+            }
+        });
+        input.addEventListener('change', () => {
+            const file = input.files?.[0];
+            if (!file) return;
+            if (!file.type.startsWith('image/')) {
+                filename.textContent = 'Pilih file gambar JPG, PNG, atau WebP.';
+                input.value = '';
+                return;
+            }
+            preview.src = URL.createObjectURL(file);
+            filename.textContent = file.name;
+        });
+    });
+    @endif
+
     // Auto-resize textareas
     document.querySelectorAll('textarea').forEach(ta => {
         ta.addEventListener('input', () => {

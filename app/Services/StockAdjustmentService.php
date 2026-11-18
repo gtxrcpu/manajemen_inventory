@@ -16,6 +16,7 @@ class StockAdjustmentService
     {
         return DB::transaction(function () use ($data) {
             Location::whereKey($data['location_id'])->lockForUpdate()->firstOrFail();
+            StockOpnameMovementGuard::assertProductCanMove((int) $data['location_id'], (int) $data['product_id']);
             $movements = StockMovement::where('location_id', $data['location_id'])
                 ->where('product_id', $data['product_id'])->lockForUpdate()->get(['type', 'quantity']);
             $oldQuantity = $movements->sum(fn (StockMovement $movement) => $movement->type === 'in' ? (float) $movement->quantity : -(float) $movement->quantity);

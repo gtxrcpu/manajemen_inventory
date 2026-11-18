@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class StockTransferItem extends Model
 {
@@ -23,4 +24,5 @@ class StockTransferItem extends Model
     public function destinationBatch(): BelongsTo { return $this->belongsTo(StockInItem::class, 'destination_batch_id'); }
     public function stockOutItem(): BelongsTo { return $this->belongsTo(StockOutItem::class); }
     public function stockInItem(): BelongsTo { return $this->belongsTo(StockInItem::class); }
+    public function discrepancyResolutions(): HasMany { return $this->hasMany(StockTransferDiscrepancyResolution::class); }
 }

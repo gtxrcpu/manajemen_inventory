@@ -2,11 +2,14 @@
 
 namespace App\Services;
 
+use Carbon\CarbonInterface;
 use App\Models\Location;
 use App\Models\StockTransfer;
 use App\Models\StockTransferRequest;
 use App\Models\StockTransferReceipt;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class StockTransferService
@@ -15,6 +18,7 @@ class StockTransferService
         private readonly StockOutService $stockOutService,
         private readonly StockInService $stockInService,
         private readonly AdminAuditLogger $auditLogger,
+        private readonly TransferApprovalAlertService $approvalAlerts,
     ) {}
 
     public function request(array $data): StockTransferRequest
@@ -51,13 +55,31 @@ class StockTransferService
 
     public function dispatch(array $data): StockTransfer
     {
-        return DB::transaction(function () use ($data) {
+        $transfer = DB::transaction(function () use ($data) {
             $locations = Location::whereIn('id', [$data['source_location_id'], $data['destination_location_id']])
                 ->where('is_active', true)->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             $source = $locations->get($data['source_location_id']);
             $destination = $locations->get($data['destination_location_id']);
             if (! $source || $source->type !== Location::TYPE_WAREHOUSE) throw ValidationException::withMessages(['source_location_id' => 'Lokasi asal harus berupa gudang aktif.']);
             if (! $destination || $destination->type !== Location::TYPE_OUTLET || $source->is($destination)) throw ValidationException::withMessages(['destination_location_id' => 'Lokasi tujuan harus berupa outlet aktif yang berbeda dari gudang asal.']);
+
+            // Pending approvals reserve stock so concurrent prepared transfers cannot
+            // collectively exceed the warehouse balance before dispatch.
+            $reservedItems = StockTransfer::with('items')
+                ->where('source_location_id', $source->id)
+                ->where('status', 'pending_approval')
+                ->get()
+                ->flatMap(fn (StockTransfer $pending) => $pending->items->map(fn ($item) => [
+                    'product_id' => $item->product_id,
+                    'quantity' => $item->quantity,
+                ]));
+
+            // Reject impossible transfers before creating a pending_approval record.
+            $this->stockOutService->assertAvailable([
+                'location_id' => $source->id,
+                'issued_at' => now()->toDateString(),
+                'items' => $reservedItems->concat($data['items'])->all(),
+            ]);
 
             $request = null;
             if (! empty($data['request_id'])) {
@@ -72,33 +94,94 @@ class StockTransferService
             }
 
             $transfer = StockTransfer::create([
-                'reference' => $data['reference'], 'source_location_id' => $source->id, 'destination_location_id' => $destination->id,
-                'stock_transfer_request_id' => $request?->id, 'dispatched_by' => auth()->id(), 'status' => 'in_transit',
-                'dispatched_at' => now(), 'notes' => $data['notes'] ?? null,
+                'reference' => $this->generateTransferReference(), 'source_location_id' => $source->id, 'destination_location_id' => $destination->id,
+                'stock_transfer_request_id' => $request?->id, 'prepared_by' => auth()->id(), 'status' => 'pending_approval',
+                'dispatched_at' => null, 'notes' => $data['notes'] ?? null,
             ]);
-            $stockOut = $this->stockOutService->issue([
-                'reference' => 'TRF-OUT-'.$transfer->id, 'destination' => 'Transfer '.$transfer->reference.' ke '.$destination->name,
-                'location_id' => $source->id, 'issued_at' => now()->toDateString(), 'notes' => $data['notes'] ?? null, 'items' => $data['items'],
-            ]);
-            foreach ($stockOut->items()->orderBy('id')->get() as $item) {
-                $transfer->items()->create(['product_id' => $item->product_id, 'source_batch_id' => $item->batch_id, 'stock_out_item_id' => $item->id, 'quantity' => $item->quantity]);
+            foreach ($data['items'] as $item) {
+                $transfer->items()->create(['product_id' => $item['product_id'], 'quantity' => $item['quantity']]);
             }
-            $transfer->update(['stock_out_id' => $stockOut->id]);
-            if ($request) $request->update(['status' => 'dispatched', 'stock_transfer_id' => $transfer->id]);
-            $this->auditLogger->record('stock_transfer.dispatched', $transfer, [
+            if ($request) $request->update(['status' => 'awaiting_approval', 'stock_transfer_id' => $transfer->id]);
+            $this->auditLogger->record('stock_transfer.submitted_for_approval', $transfer, [
                 'reference' => $transfer->reference, 'source_location_id' => $source->id, 'destination_location_id' => $destination->id,
-                'stock_out_id' => $stockOut->id, 'request_id' => $request?->id, 'item_count' => $transfer->items()->count(),
+                'request_id' => $request?->id, 'item_count' => $transfer->items()->count(),
             ]);
+            return $transfer;
+        });
+
+        $this->approvalAlerts->queue($transfer);
+
+        return $transfer;
+    }
+
+    private function generateTransferReference(): string
+    {
+        do {
+            $reference = 'TRF-'.now()->format('Ymd-His').'-'.Str::upper(Str::random(4));
+        } while (StockTransfer::where('reference', $reference)->exists());
+
+        return $reference;
+    }
+
+    public function approveDispatch(StockTransfer $transfer, CarbonInterface $expectedArrivalAt): StockTransfer
+    {
+        return DB::transaction(function () use ($transfer, $expectedArrivalAt) {
+            $transfer = StockTransfer::with(['sourceLocation', 'destinationLocation', 'items', 'request'])
+                ->lockForUpdate()->findOrFail($transfer->id);
+            if ($transfer->status !== 'pending_approval') {
+                throw ValidationException::withMessages(['transfer' => 'Transfer ini tidak lagi menunggu persetujuan.']);
+            }
+            if ((int) $transfer->prepared_by === (int) auth()->id() && ! auth()->user()->hasRole('super_admin')) {
+                throw ValidationException::withMessages(['transfer' => 'Pembuat transfer tidak dapat menyetujui transfernya sendiri.']);
+            }
+
+            $stockOut = $this->stockOutService->issue([
+                'reference' => 'TRF-OUT-'.$transfer->id,
+                'destination' => 'Transfer '.$transfer->reference.' ke '.$transfer->destinationLocation->name,
+                'location_id' => $transfer->source_location_id,
+                'issued_at' => now()->toDateString(),
+                'notes' => $transfer->notes,
+                'items' => $transfer->items->map(fn ($item) => ['product_id' => $item->product_id, 'quantity' => $item->quantity])->all(),
+            ]);
+
+            $transfer->items()->delete();
+            foreach ($stockOut->items()->orderBy('id')->get() as $item) {
+                $transfer->items()->create([
+                    'product_id' => $item->product_id,
+                    'source_batch_id' => $item->batch_id,
+                    'stock_out_item_id' => $item->id,
+                    'quantity' => $item->quantity,
+                ]);
+            }
+
+            $transfer->update([
+                'stock_out_id' => $stockOut->id,
+                'status' => 'in_transit',
+                'dispatched_by' => auth()->id(),
+                'dispatched_at' => now(),
+                'expected_arrival_at' => $expectedArrivalAt,
+                'approved_by' => auth()->id(),
+                'approved_at' => now(),
+            ]);
+            $transfer->request?->update(['status' => 'dispatched']);
+            $this->auditLogger->record('stock_transfer.approved_and_dispatched', $transfer, [
+                'reference' => $transfer->reference,
+                'source_location_id' => $transfer->source_location_id,
+                'destination_location_id' => $transfer->destination_location_id,
+                'stock_out_id' => $stockOut->id,
+                'approved_by' => auth()->id(),
+            ]);
+
             return $transfer;
         });
     }
 
-    public function receive(StockTransfer $transfer, array $data): StockTransfer
+    public function receive(StockTransfer $transfer, array $data): array
     {
         return DB::transaction(function () use ($transfer, $data) {
             $transfer = StockTransfer::with(['sourceLocation', 'destinationLocation', 'items.sourceBatch.stockIn'])
                 ->lockForUpdate()->findOrFail($transfer->id);
-            if (! in_array($transfer->status, ['in_transit', 'partially_received'], true)) throw ValidationException::withMessages(['transfer' => 'Transfer ini sudah ditutup atau tidak lagi menunggu penerimaan.']);
+            if (! in_array($transfer->status, ['in_transit', 'partially_received', 'discrepancy_open'], true)) throw ValidationException::withMessages(['transfer' => 'Transfer ini sudah ditutup atau tidak lagi menunggu penerimaan.']);
             if (! $transfer->destinationLocation->is_active || $transfer->destinationLocation->type !== Location::TYPE_OUTLET) throw ValidationException::withMessages(['transfer' => 'Lokasi outlet tujuan sudah tidak aktif.']);
 
             $receivedAt = now();
@@ -126,7 +209,7 @@ class StockTransferService
                     'reference' => 'TRF-IN-'.$transfer->id.'-'.($transfer->receipts()->count() + 1), 'supplier_id' => null,
                     'source' => 'Transfer '.$transfer->reference.' dari '.$transfer->sourceLocation->name, 'location_id' => $transfer->destination_location_id,
                     'received_at' => $receivedAt->toDateString(), 'notes' => $data['notes'] ?? null, 'items' => $lines,
-                ]);
+                ], requiresOutletApproval: false);
             }
             $receipt = StockTransferReceipt::create(['stock_transfer_id' => $transfer->id, 'stock_in_id' => $receiptStockIn?->id,
                 'received_by' => auth()->id(), 'received_at' => $receivedAt, 'is_final' => $isFinal || ! $hasRemaining, 'notes' => $data['notes'] ?? null]);
@@ -134,7 +217,11 @@ class StockTransferService
             $receiptIndex = 0;
             foreach ($byTransferItem as $index => $transferItem) {
                 $stockInItem = $stockInItems->get($receiptIndex++);
-                $transferItem->received_quantity = (float) $transferItem->received_quantity + (float) ($data['items'][$index] ?? 0);
+                $receivedQuantity = (float) ($data['items'][$index] ?? 0);
+                $transferItem->received_quantity = (float) $transferItem->received_quantity + $receivedQuantity;
+                if ($transfer->status === 'discrepancy_open' && ! $isFinal) {
+                    $transferItem->discrepancy_quantity = max(0, (float) $transferItem->discrepancy_quantity - $receivedQuantity);
+                }
                 $transferItem->save();
                 $receipt->items()->create(['stock_transfer_item_id' => $transferItem->id, 'stock_in_item_id' => $stockInItem?->id,
                     'quantity' => $data['items'][$index]]);
@@ -142,17 +229,66 @@ class StockTransferService
             }
             foreach ($transfer->items as $item) {
                 $remaining = (float) $item->quantity - (float) $item->received_quantity;
-                if ($isFinal && $remaining > 0.0005) $item->update(['discrepancy_quantity' => $remaining, 'discrepancy_reason' => $data['discrepancy_reason']]);
+                if ($isFinal && $remaining > 0.0005) {
+                    $item->update(['discrepancy_quantity' => $remaining, 'discrepancy_reason' => $data['discrepancy_reason']]);
+                }
             }
             $allReceived = $transfer->items()->whereRaw('received_quantity < quantity')->doesntExist();
-            $status = $allReceived ? 'received' : ($isFinal ? 'received_with_discrepancy' : 'partially_received');
+            $hasOpenDiscrepancy = $transfer->items()->where('discrepancy_quantity', '>', 0)->exists();
+            $status = $allReceived ? 'received' : (($isFinal || $transfer->status === 'discrepancy_open' || $hasOpenDiscrepancy) ? 'discrepancy_open' : 'partially_received');
             $transfer->update(['stock_in_id' => $transfer->stock_in_id ?? $receiptStockIn?->id, 'status' => $status,
                 'received_by' => auth()->id(), 'received_at' => $isFinal || $allReceived ? $receivedAt : $transfer->received_at]);
             $this->auditLogger->record('stock_transfer.received', $transfer, [
                 'reference' => $transfer->reference, 'stock_in_id' => $receiptStockIn?->id, 'receipt_id' => $receipt->id,
                 'received_by' => auth()->id(), 'status' => $status, 'is_final' => $isFinal,
             ]);
-            return $transfer;
+            return ['transfer' => $transfer, 'receipt' => $receipt];
+        });
+    }
+
+    public function resolveDiscrepancy(StockTransfer $transfer, int $itemId, array $data): StockTransfer
+    {
+        if (! Schema::hasTable('stock_transfer_discrepancy_resolutions')) {
+            throw ValidationException::withMessages(['transfer' => 'Penyelesaian discrepancy belum aktif. Migration fitur ini perlu dipasang terlebih dahulu.']);
+        }
+
+        return DB::transaction(function () use ($transfer, $itemId, $data) {
+            $transfer = StockTransfer::lockForUpdate()->findOrFail($transfer->id);
+            if ($transfer->status !== 'discrepancy_open') {
+                throw ValidationException::withMessages(['transfer' => 'Transfer ini tidak memiliki discrepancy terbuka.']);
+            }
+
+            $item = $transfer->items()->lockForUpdate()->findOrFail($itemId);
+            $quantity = (float) $data['quantity'];
+            if ($quantity <= 0 || $quantity - (float) $item->discrepancy_quantity > 0.0005) {
+                throw ValidationException::withMessages(['quantity' => 'Jumlah penyelesaian melebihi discrepancy yang masih terbuka.']);
+            }
+
+            $resolution = $item->discrepancyResolutions()->create([
+                'resolution_type' => $data['resolution_type'],
+                'quantity' => $quantity,
+                'reason' => trim($data['reason']),
+                'resolved_by' => auth()->id(),
+                'resolved_at' => now(),
+            ]);
+            $item->update(['discrepancy_quantity' => max(0, (float) $item->discrepancy_quantity - $quantity)]);
+
+            $hasOpenDiscrepancy = $transfer->items()->where('discrepancy_quantity', '>', 0)->exists();
+            $allReceived = $transfer->items()->whereRaw('received_quantity < quantity')->doesntExist();
+            $status = $allReceived ? 'received' : ($hasOpenDiscrepancy ? 'discrepancy_open' : 'received_with_discrepancy');
+            $transfer->update(['status' => $status]);
+
+            $this->auditLogger->record('stock_transfer.discrepancy_resolved', $transfer, [
+                'reference' => $transfer->reference,
+                'transfer_item_id' => $item->id,
+                'resolution_id' => $resolution->id,
+                'resolution_type' => $resolution->resolution_type,
+                'quantity' => $quantity,
+                'remaining_discrepancy' => (float) $item->fresh()->discrepancy_quantity,
+                'status' => $status,
+            ]);
+
+            return $transfer->fresh();
         });
     }
 }

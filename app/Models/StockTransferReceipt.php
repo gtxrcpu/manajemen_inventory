@@ -14,4 +14,5 @@ class StockTransferReceipt extends Model
     public function stockIn(): BelongsTo { return $this->belongsTo(StockIn::class); }
     public function receiver(): BelongsTo { return $this->belongsTo(User::class, 'received_by')->withTrashed(); }
     public function items(): HasMany { return $this->hasMany(StockTransferReceiptItem::class); }
+    public function whatsappLogs(): HasMany { return $this->hasMany(StockTransferReceiptWhatsAppLog::class, 'stock_transfer_receipt_id'); }
 }

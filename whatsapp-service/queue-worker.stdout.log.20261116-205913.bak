@@ -1,0 +1,24 @@
+
+Warning: PHP Startup: Unable to load dynamic library 'curl' (tried: C:/laragon/bin/php/php-8.3.33-Win32-vs16-x64/ext\curl (The specified module could not be found), C:/laragon/bin/php/php-8.3.33-Win32-vs16-x64/ext\php_curl.dll (An Application Control policy has blocked this file)) in Unknown on line 0
+
+   Illuminate\Database\QueryException 
+
+  SQLSTATE[HY000] [2002] No connection could be made because the target machine actively refused it (Connection: mysql, Host: 127.0.0.1, Port: 3306, Database: inventaris, SQL: select * from `cache` where `key` in (laravel-cache-illuminate:queue:restart))
+
+  at vendor\laravel\framework\src\Illuminate\Database\Connection.php:838
+    834▕             $exceptionType = $this->isUniqueConstraintError($e)
+    835▕                 ? UniqueConstraintViolationException::class
+    836▕                 : QueryException::class;
+    837▕ 
+  ➜ 838▕             throw new $exceptionType(
+    839▕                 $this->getNameWithReadWriteType(),
+    840▕                 $query,
+    841▕                 $this->prepareBindings($bindings),
+    842▕                 $e,
+
+  1   vendor\laravel\framework\src\Illuminate\Database\Connectors\Connector.php:66
+      PDOException::("SQLSTATE[HY000] [2002] No connection could be made because the target machine actively refused it")
+
+  2   vendor\laravel\framework\src\Illuminate\Database\Connectors\Connector.php:66
+      PDO::__construct("mysql:host=127.0.0.1;port=3306;dbname=inventaris", "root", Object(SensitiveParameterValue), [])
+

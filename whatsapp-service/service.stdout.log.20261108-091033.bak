@@ -1,0 +1,5 @@
+WhatsApp service listening on http://127.0.0.1:3100
+WhatsApp account authenticated; waiting for client readiness.
+WhatsApp session is ready.
+WhatsApp outbound message created: {"hasId":true,"ack":0}
+WhatsApp outbound acknowledgement: {"hasId":true,"ack":3}

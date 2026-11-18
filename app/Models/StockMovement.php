@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class StockMovement extends Model
 {
-    protected $fillable = ['product_id', 'location_id', 'user_id', 'batch_id', 'stock_in_item_id', 'stock_out_item_id', 'stock_opname_item_id', 'stock_adjustment_id', 'type', 'quantity', 'note'];
+    protected $fillable = ['product_id', 'location_id', 'user_id', 'batch_id', 'stock_in_item_id', 'stock_out_item_id', 'stock_opname_item_id', 'stock_adjustment_id', 'stock_disposal_item_id', 'type', 'quantity', 'note'];
 
     protected function casts(): array
     {
@@ -23,6 +23,7 @@ class StockMovement extends Model
     public function stockOutItem(): BelongsTo { return $this->belongsTo(StockOutItem::class); }
     public function stockOpnameItem(): BelongsTo { return $this->belongsTo(StockOpnameItem::class); }
     public function stockAdjustment(): BelongsTo { return $this->belongsTo(StockAdjustment::class); }
+    public function stockDisposalItem(): BelongsTo { return $this->belongsTo(StockDisposalItem::class); }
 
     protected function transactionType(): Attribute
     {
@@ -31,6 +32,7 @@ class StockMovement extends Model
             $this->stockOutItem !== null => 'Stock Out',
             $this->stockOpnameItem !== null => 'Stock Opname',
             $this->stockAdjustment !== null => 'Adjustment',
+            $this->stockDisposalItem !== null => 'Write-off / retur',
             default => $this->type === 'in' ? 'Stock In' : 'Stock Out',
         });
     }
@@ -41,6 +43,7 @@ class StockMovement extends Model
             ?? $this->stockOutItem?->stockOut?->reference
             ?? $this->stockOpnameItem?->opname?->reference
             ?? $this->stockAdjustment?->reference
+            ?? $this->stockDisposalItem?->disposal?->reference
             ?? '—');
     }
 }
