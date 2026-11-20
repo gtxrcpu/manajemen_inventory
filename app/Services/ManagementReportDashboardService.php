@@ -88,7 +88,7 @@ class ManagementReportDashboardService
         $expiredBatchCount = $expiryRows->where('status', 'Kedaluwarsa')->count();
         $nearExpiryBatchCount = $expiryRows->where('status', 'Segera kedaluwarsa')->count();
 
-        $openPurchaseOrders = PurchaseOrder::query()->where('status', 'issued')
+        $openPurchaseOrders = PurchaseOrder::query()->whereIn('status', ['open', 'partially_received', 'issued'])
             ->when($locationId, fn ($query) => $query->where('location_id', $locationId))->count();
         $inTransitTransfers = StockTransfer::query()->whereIn('status', ['in_transit', 'partially_received', 'discrepancy_open'])
             ->when($locationId, fn ($query) => $query->where(function ($scope) use ($locationId) {

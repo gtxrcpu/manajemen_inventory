@@ -19,20 +19,22 @@ class PurchasingController extends Controller
 {
     private function authorizeView(): void
     {
-        abort_unless(auth()->user()->hasPermissionTo('purchasing.manage') || auth()->user()->hasPermissionTo('stock.manage'), 403);
+        abort_unless(auth()->user()->hasPermissionTo('purchasing.manage') || auth()->user()->hasPermissionTo('stock.manage') || auth()->user()->hasPermissionTo('purchase-request.approve'), 403);
     }
 
-    private function assertWarehouseStaffScope(PurchaseOrder $purchaseOrder): void
+    private function assertReceivingLocationScope(PurchaseOrder $purchaseOrder): void
     {
         $user = auth()->user();
         if ($user->isWarehouseStaff()) {
             abort_unless(in_array((int) $purchaseOrder->location_id, $user->assignedWarehouseLocationIds(), true), 403);
+        } elseif ($user->hasRole('staff_outlet')) {
+            abort_unless(in_array((int) $purchaseOrder->location_id, $user->assignedOutletLocationIds(), true), 403);
         }
     }
 
     public function index(Request $request): View|RedirectResponse
     {
-        if (auth()->user()->hasRole('staff_gudang')) {
+        if (auth()->user()->hasRole('staff_gudang') || auth()->user()->hasRole('staff_outlet')) {
             return redirect()->route('inventory.stock-in.purchase-orders');
         }
         $this->authorizeView();
@@ -61,10 +63,10 @@ class PurchasingController extends Controller
         }
         $poStatus = $request->query('po_status');
         if ($poStatus === 'active') {
-            $poQuery->whereIn('status', ['ordered', 'issued']);
+            $poQuery->whereIn('status', ['ordered', 'issued', 'open', 'partially_received']);
         } elseif ($poStatus === 'follow_up') {
-            $poQuery->where('status', 'issued')->whereHas('stockIn');
-        } elseif (in_array($poStatus, ['ordered', 'issued', 'received', 'closed_with_variance'], true)) {
+            $poQuery->whereIn('status', ['issued', 'open', 'partially_received'])->whereHas('stockIn');
+        } elseif (in_array($poStatus, ['ordered', 'issued', 'open', 'partially_received', 'received', 'completed', 'closed_with_variance', 'draft', 'cancelled'], true)) {
             $poQuery->where('status', $poStatus);
         }
 
@@ -73,9 +75,9 @@ class PurchasingController extends Controller
             'pr_total'    => PurchaseRequest::count(),
             'pr_approved' => PurchaseRequest::where('status', 'approved')->count(),
             'po_total'    => PurchaseOrder::count(),
-            'po_pending'  => PurchaseOrder::whereIn('status', ['ordered', 'issued'])->count(),
-            'po_follow_up' => PurchaseOrder::where('status', 'issued')->whereHas('stockIn')->count(),
-            'po_received' => PurchaseOrder::where('status', 'received')->count(),
+            'po_pending'  => PurchaseOrder::whereIn('status', ['ordered', 'issued', 'open', 'partially_received'])->count(),
+            'po_follow_up' => PurchaseOrder::whereIn('status', ['issued', 'open', 'partially_received'])->whereHas('stockIn')->count(),
+            'po_received' => PurchaseOrder::whereIn('status', ['received', 'completed'])->count(),
             'po_closed_with_variance' => PurchaseOrder::where('status', 'closed_with_variance')->count(),
         ];
 
@@ -110,64 +112,200 @@ class PurchasingController extends Controller
         return view('purchasing.request-create', [
             'products' => Product::where('is_active', true)->with('unit')->orderBy('name')->get(),
             'productOptions' => Product::where('is_active', true)->with('unit')->orderBy('name')->get()->map(fn (Product $product) => ['id' => $product->id, 'name' => $product->name, 'sku' => $product->sku, 'unit' => $product->unit->symbol])->values(),
+            'locations' => Location::where('is_active', true)->orderBy('type')->orderBy('name')->get(),
+            'suppliers' => Supplier::where('is_active', true)->orderBy('name')->get(),
+            'purchaseRequest' => null,
+            'initialItems' => session()->getOldInput('items', []),
         ]);
+    }
+
+    public function estimateRequestItem(Request $request, PurchasingService $service)
+    {
+        abort_unless($request->user()->hasPermissionTo('purchasing.manage'), 403);
+        $data = $request->validate([
+            'product_id' => ['required', 'integer', 'exists:products,id,deleted_at,NULL,is_active,1'],
+            'location_id' => ['required', 'integer', Rule::exists('locations', 'id')->whereIn('type', [Location::TYPE_WAREHOUSE, Location::TYPE_OUTLET])->where('is_active', true)->whereNull('deleted_at')],
+        ]);
+        $product = Product::with('unit')->findOrFail($data['product_id']);
+        $location = Location::findOrFail($data['location_id']);
+
+        return response()->json($service->requestItemEstimate($product, $location));
     }
 
     public function storeRequest(Request $request, PurchasingService $service): RedirectResponse
     {
         abort_unless(auth()->user()->hasPermissionTo('purchasing.manage'), 403);
-        $data = $request->validate([
-            'reference' => ['required', 'string', 'max:100', Rule::unique('purchase_requests', 'reference')],
+        $data = $this->validatePurchaseRequest($request);
+        $pr = $service->createRequest($data);
+        return redirect()->route('purchasing.requests.show', $pr)->with('status', 'Purchase Request terkirim dan menunggu persetujuan Management.');
+    }
+
+    public function editRequest(PurchaseRequest $purchaseRequest): View
+    {
+        abort_unless(auth()->user()->hasPermissionTo('purchasing.manage'), 403);
+        abort_unless($purchaseRequest->status === 'pending_approval' && ! $purchaseRequest->purchaseOrder()->exists(), 404);
+        $purchaseRequest->load(['items.product.unit']);
+
+        return view('purchasing.request-create', [
+            'products' => Product::where('is_active', true)->with('unit')->orderBy('name')->get(),
+            'productOptions' => Product::where('is_active', true)->with('unit')->orderBy('name')->get()->map(fn (Product $product) => ['id' => $product->id, 'name' => $product->name, 'sku' => $product->sku, 'unit' => $product->unit->symbol])->values(),
+            'locations' => Location::where('is_active', true)->orderBy('type')->orderBy('name')->get(),
+            'suppliers' => Supplier::where('is_active', true)->orderBy('name')->get(),
+            'purchaseRequest' => $purchaseRequest,
+            'initialItems' => session()->getOldInput('items', $purchaseRequest->items->map(fn ($item) => [
+                'product_id' => $item->product_id, 'quantity' => $item->quantity,
+                'estimated_unit_price' => $item->estimated_unit_price, 'notes' => $item->notes,
+            ])->values()->all()),
+        ]);
+    }
+
+    public function updateRequest(Request $request, PurchaseRequest $purchaseRequest, PurchasingService $service): RedirectResponse
+    {
+        abort_unless(auth()->user()->hasPermissionTo('purchasing.manage'), 403);
+        abort_unless($purchaseRequest->status === 'pending_approval' && ! $purchaseRequest->purchaseOrder()->exists(), 404);
+        $data = $this->validatePurchaseRequest($request, $purchaseRequest);
+        $pr = $service->updateRequest($purchaseRequest, $data);
+
+        return redirect()->route('purchasing.requests.show', $pr)->with('status', 'Purchase Request diperbarui dan tetap menunggu persetujuan Management.');
+    }
+
+    private function validatePurchaseRequest(Request $request, ?PurchaseRequest $purchaseRequest = null): array
+    {
+        return $request->validate([
+            'reference' => ['required', 'string', 'max:100', Rule::unique('purchase_requests', 'reference')->ignore($purchaseRequest?->id)],
+            'location_id' => ['required', 'integer', Rule::exists('locations', 'id')->whereIn('type', [Location::TYPE_WAREHOUSE, Location::TYPE_OUTLET])->where('is_active', true)->whereNull('deleted_at')],
+            'priority' => ['required', Rule::in(['normal', 'emergency'])],
+            'justification' => ['required', 'string', 'min:5', 'max:5000'],
+            'recommended_supplier_id' => ['nullable', 'integer', 'exists:suppliers,id,deleted_at,NULL,is_active,1'],
             'required_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:5000'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'integer', 'distinct', 'exists:products,id,deleted_at,NULL,is_active,1'],
             'items.*.quantity' => ['required', 'numeric', 'gt:0', 'max:999999999'],
+            'items.*.estimated_unit_price' => ['required', 'numeric', 'min:0', 'max:999999999999'],
+            'items.*.notes' => ['nullable', 'string', 'max:1000'],
+        ], [
+            'justification.required' => 'Alasan pembelian wajib diisi.',
+            'items.*.estimated_unit_price.required' => 'Lengkapi estimasi harga satuan setiap barang.',
         ]);
-        $pr = $service->createRequest($data);
-        return redirect()->route('purchasing.requests.show', $pr)->with('status', 'Purchase Request disetujui otomatis dan siap diproses oleh Purchasing.');
     }
 
     public function showRequest(PurchaseRequest $purchaseRequest): View
     {
-        abort_unless(auth()->user()->hasPermissionTo('purchasing.manage'), 403);
-        $this->authorizeView();
-        return view('purchasing.request-show', ['purchaseRequest' => $purchaseRequest->load(['requester', 'reviewer', 'items.product.unit', 'purchaseOrder'])]);
+        $user = auth()->user();
+        $canReviewPurchaseRequest = $user->hasPermissionTo('purchase-request.approve');
+        abort_unless($user->hasPermissionTo('purchasing.manage') || $canReviewPurchaseRequest, 403);
+        return view('purchasing.request-show', [
+            'purchaseRequest' => $purchaseRequest->load(['requester', 'reviewer', 'approver', 'rejector', 'location', 'recommendedSupplier', 'items.product.unit', 'purchaseOrder']),
+            'canReviewPurchaseRequest' => $canReviewPurchaseRequest && (int) $purchaseRequest->requested_by !== (int) $user->id,
+            'minimumStocks' => $purchaseRequest->location_id
+                ? \App\Models\ProductLocationStockThreshold::where('location_id', $purchaseRequest->location_id)->pluck('minimum_quantity', 'product_id')
+                : collect(),
+        ]);
     }
 
     public function createOrder(PurchaseRequest $purchaseRequest): View
     {
         abort_unless(auth()->user()->hasPermissionTo('purchasing.manage'), 403);
-        abort_unless($purchaseRequest->status === 'approved' && ! $purchaseRequest->purchaseOrder()->exists(), 404);
+        abort_unless($purchaseRequest->status === 'approved' && ! $purchaseRequest->purchaseOrder()->where('status', '!=', 'cancelled')->exists(), 404);
         return view('purchasing.order-create', [
             'purchaseRequest' => $purchaseRequest->load('items.product.unit'),
             'suppliers' => Supplier::where('is_active', true)->orderBy('name')->get(),
-            'locations' => Location::where('type', Location::TYPE_WAREHOUSE)->where('is_active', true)->orderBy('name')->get(),
+            'locations' => $purchaseRequest->location_id
+                ? Location::whereKey($purchaseRequest->location_id)->where('is_active', true)->get()
+                : Location::where('type', Location::TYPE_WAREHOUSE)->where('is_active', true)->orderBy('name')->get(),
+            'products' => Product::where('is_active', true)->with('unit')->orderBy('name')->get(),
+            'items' => $purchaseRequest->items->map(fn ($item) => ['product_id' => $item->product_id, 'description' => $item->notes, 'quantity' => $item->quantity, 'unit_price' => $item->estimated_unit_price ?? 0, 'discount_amount' => 0])->values(),
+            'purchaseOrder' => null,
+        ]);
+    }
+
+    public function createDirectOrder(): View
+    {
+        abort_unless(auth()->user()->hasPermissionTo('purchasing.manage'), 403);
+        return view('purchasing.order-create', [
+            'purchaseRequest' => null, 'purchaseOrder' => null, 'products' => Product::where('is_active', true)->with('unit')->orderBy('name')->get(),
+            'suppliers' => Supplier::where('is_active', true)->orderBy('name')->get(),
+            'locations' => Location::where('is_active', true)->orderBy('type')->orderBy('name')->get(), 'items' => collect(),
+        ]);
+    }
+
+    public function editDraftOrder(PurchaseOrder $purchaseOrder): View
+    {
+        abort_unless(auth()->user()->hasPermissionTo('purchasing.manage') && $purchaseOrder->status === 'draft', 403);
+        $purchaseOrder->load(['request', 'items']);
+        return view('purchasing.order-create', [
+            'purchaseRequest' => $purchaseOrder->request, 'purchaseOrder' => $purchaseOrder,
+            'products' => Product::where('is_active', true)->with('unit')->orderBy('name')->get(),
+            'suppliers' => Supplier::where('is_active', true)->orderBy('name')->get(), 'locations' => Location::where('is_active', true)->orderBy('type')->orderBy('name')->get(),
+            'items' => $purchaseOrder->items->map(fn ($item) => ['product_id' => $item->product_id, 'description' => $item->description, 'quantity' => $item->qty_ordered ?: $item->quantity, 'unit_price' => $item->unit_price ?? 0, 'discount_amount' => $item->discount_amount ?? 0])->values(),
         ]);
     }
 
     public function storeOrder(Request $request, PurchaseRequest $purchaseRequest, PurchasingService $service): RedirectResponse
     {
         abort_unless(auth()->user()->hasPermissionTo('purchasing.manage'), 403);
-        $data = $request->validate([
-            'reference' => ['required', 'string', 'max:100', Rule::unique('purchase_orders', 'reference')],
-            'supplier_id' => ['required', 'integer', 'exists:suppliers,id,deleted_at,NULL,is_active,1'],
-            'location_id' => ['required', 'integer', Rule::exists('locations', 'id')->where('type', Location::TYPE_WAREHOUSE)->where('is_active', true)->whereNull('deleted_at')],
-            'expected_delivery' => ['nullable', 'date'],
-            'notes' => ['nullable', 'string', 'max:5000'],
-        ]);
+        $data = $this->validateOrder($request, $purchaseRequest->location_id);
         $order = $service->createOrder($purchaseRequest, $data);
-        return redirect()->route('purchasing.orders.show', $order)->with('status', 'Purchase Order berhasil diterbitkan.');
+        return redirect()->route('purchasing.orders.show', $order)->with('status', 'Draft Purchase Order berhasil dibuat. Tinjau lalu terbitkan PO.');
+    }
+
+    public function storeDirectOrder(Request $request, PurchasingService $service): RedirectResponse
+    {
+        abort_unless(auth()->user()->hasPermissionTo('purchasing.manage'), 403);
+        $data = $this->validateOrder($request);
+        $order = $service->createOrder(null, $data);
+        return redirect()->route('purchasing.orders.show', $order)->with('status', 'Draft Purchase Order berhasil dibuat. Tinjau lalu terbitkan PO.');
+    }
+
+    public function updateDraftOrder(Request $request, PurchaseOrder $purchaseOrder, PurchasingService $service): RedirectResponse
+    {
+        abort_unless(auth()->user()->hasPermissionTo('purchasing.manage') && $purchaseOrder->status === 'draft', 403);
+        $data = $this->validateOrder($request, $purchaseOrder->request?->location_id);
+        $order = $service->updateDraftOrder($purchaseOrder, $data);
+        return redirect()->route('purchasing.orders.show', $order)->with('status', 'Draft PO berhasil diperbarui.');
+    }
+
+    private function validateOrder(Request $request, ?int $lockedLocationId = null): array
+    {
+        return $request->validate([
+            'supplier_id' => ['required', 'integer', 'exists:suppliers,id,deleted_at,NULL,is_active,1'],
+            'location_id' => $lockedLocationId ? ['required', 'integer', Rule::in([$lockedLocationId])] : ['required', 'integer', Rule::exists('locations', 'id')->where('is_active', true)->whereNull('deleted_at')],
+            'order_date' => ['required', 'date'], 'expected_delivery_date' => ['nullable', 'date', 'after_or_equal:order_date'],
+            'payment_terms' => ['required', Rule::in(['cod', 'transfer_before_delivery', 'net_7', 'net_14', 'net_30'])],
+            'delivery_terms' => ['nullable', 'string', 'max:255'], 'tax_rate' => ['required', 'numeric', 'min:0', 'max:100'],
+            'shipping_cost' => ['required', 'numeric', 'min:0', 'max:999999999999.99'], 'other_cost' => ['required', 'numeric', 'min:0', 'max:999999999999.99'],
+            'notes' => ['nullable', 'string', 'max:10000'], 'items' => ['required', 'array', 'min:1'],
+            'items.*.product_id' => ['required', 'integer', 'distinct', 'exists:products,id,deleted_at,NULL,is_active,1'],
+            'items.*.description' => ['nullable', 'string', 'max:1000'], 'items.*.quantity' => ['required', 'numeric', 'gt:0', 'max:999999999'],
+            'items.*.unit_price' => ['required', 'numeric', 'min:0', 'max:999999999999.99'],
+            'items.*.discount_amount' => ['nullable', 'numeric', 'min:0', 'max:999999999999.99'],
+        ]);
+    }
+
+    public function issueOrder(Request $request, PurchaseOrder $purchaseOrder, PurchasingService $service): RedirectResponse
+    {
+        abort_unless($request->user()->hasPermissionTo('purchasing.manage'), 403);
+        $order = $service->issueOrder($purchaseOrder);
+        return redirect()->route('purchasing.orders.show', $order)->with('status', 'Purchase Order diterbitkan dan siap dikirim ke supplier.');
+    }
+
+    public function cancelOrder(Request $request, PurchaseOrder $purchaseOrder, PurchasingService $service): RedirectResponse
+    {
+        abort_unless($request->user()->hasPermissionTo('purchasing.manage'), 403);
+        $service->cancelDraftOrder($purchaseOrder);
+        return redirect()->route('purchasing.index')->with('status', 'Purchase Order dibatalkan.');
     }
 
     public function showOrder(PurchaseOrder $purchaseOrder): View
     {
         $this->authorizeView();
-        $this->assertWarehouseStaffScope($purchaseOrder);
-        $purchaseOrder->load(['request', 'supplier', 'location', 'creator', 'supplierFollowUpBy', 'items.product.unit', 'stockIn.items.product.unit', 'stockIn.evidences', 'invoices.items.product.unit']);
+        $this->assertReceivingLocationScope($purchaseOrder);
+        $purchaseOrder->load(['request', 'supplier', 'location', 'destinationLocation', 'creator', 'supplierFollowUpBy', 'items.product.unit', 'stockIn.items.product.unit', 'stockIn.evidences', 'invoices.items.product.unit']);
         $invoice = $purchaseOrder->invoices->sortByDesc('created_at')->first();
         $invoiceQuantities = $invoice?->items->keyBy('product_id')->map(fn ($line) => (float) $line->quantity) ?? collect();
         $receivedQuantities = $purchaseOrder->stockIn
+            ->filter(fn ($receipt) => in_array($receipt->status, ['approved', 'pending_approval'], true))
             ->flatMap(fn ($receipt) => $receipt->items)
             ->filter(fn ($line) => $line->purchase_order_item_id !== null)
             ->groupBy('purchase_order_item_id')
@@ -182,14 +320,24 @@ class PurchasingController extends Controller
         ]);
     }
 
+    public function printOrder(PurchaseOrder $purchaseOrder): View
+    {
+        abort_unless(auth()->user()->hasPermissionTo('purchasing.manage'), 403);
+        $purchaseOrder->load(['request', 'supplier', 'destinationLocation', 'location', 'creator', 'items.product.unit']);
+        return view('purchasing.order-print', ['order' => $purchaseOrder]);
+    }
+
     public function receivingOrders(Request $request): View
     {
         abort_unless(auth()->user()->hasPermissionTo('stock.manage'), 403);
-        $warehouseLocationIds = $request->user()->isWarehouseStaff() ? $request->user()->assignedWarehouseLocationIds() : [];
-        if ($request->user()->isWarehouseStaff()) abort_unless($warehouseLocationIds, 403, 'Akun Staff Gudang belum memiliki gudang aktif yang ditugaskan.');
+        $user = $request->user();
+        $isWarehouseStaff = $user->isWarehouseStaff();
+        $isOutletStaff = $user->hasRole('staff_outlet');
+        $assignedLocationIds = $isWarehouseStaff ? $user->assignedWarehouseLocationIds() : ($isOutletStaff ? $user->assignedOutletLocationIds() : []);
+        if ($isWarehouseStaff || $isOutletStaff) abort_unless($assignedLocationIds, 403, 'Akun Staff belum memiliki lokasi aktif yang ditugaskan.');
         $query = PurchaseOrder::with(['supplier', 'location', 'items.product.unit', 'invoices.items'])
-            ->where('status', 'issued')
-            ->when($request->user()->isWarehouseStaff(), fn ($orders) => $orders->whereIn('location_id', $warehouseLocationIds))
+            ->whereIn('status', ['issued', 'open', 'partially_received'])
+            ->when($isWarehouseStaff || $isOutletStaff, fn ($orders) => $orders->whereIn('location_id', $assignedLocationIds))
             ->latest();
         if ($request->filled('q')) {
             $term = trim($request->input('q'));
@@ -204,7 +352,7 @@ class PurchasingController extends Controller
     public function receiveOrder(Request $request, PurchaseOrder $purchaseOrder, PurchasingService $service): RedirectResponse
     {
         abort_unless(auth()->user()->hasPermissionTo('stock.manage'), 403);
-        $this->assertWarehouseStaffScope($purchaseOrder);
+        $this->assertReceivingLocationScope($purchaseOrder);
         $data = $request->validate([
             'idempotency_key' => ['required', 'uuid'],
             'received_at' => ['required', 'date'],

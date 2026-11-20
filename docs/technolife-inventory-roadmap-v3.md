@@ -1809,7 +1809,7 @@ Sprint is provisional and follows actual stakeholder priority.
 
 - [x] Purchase Request
 - [x] Purchase Order (MVP)
-- [x] Approval (Stock Opname MVP; Purchase Request auto-approved on submission)
+- [x] Approval: Stock Opname MVP; PR now waits for Management approval before PO creation (implemented 18 Nov 2026).
 - [x] Receiving integration (MVP)
 
 ## Sprint 7 — Batch + FEFO + Expiry
@@ -2009,7 +2009,7 @@ Gunakan bagian ini sebagai overview cepat.
 - [x] Riwayat completed (MVP; transfer history and batch detail remain follow-up)
 - [x] Purchasing and invoice review completed (MVP; partial receipt and discrepancy recording implemented; tax/payment and valuation method remain follow-up)
 - [ ] Final monetary inventory valuation (blocked on confirmed method and approved price source)
-- [x] Approval completed (MVP for Stock Opname and outlet Stock In; PR is auto-approved; other candidates remain follow-up)
+- [x] Approval completed for Stock Opname, outlet Stock In, and Management review of Purchase Requests before PO creation.
 - [x] Batch/Expiry completed (MVP; expired-stock disposal workflow remains follow-up)
 - [x] FEFO allocation completed (MVP; UAT pending)
 - [x] Distribution completed (MVP; full receipt only, UAT pending)

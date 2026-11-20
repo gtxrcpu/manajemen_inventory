@@ -13,6 +13,10 @@
         ['status' => 'approved', 'label' => 'Disetujui', 'value' => $stats['approved'], 'icon' => 'task_alt', 'surface' => 'border-emerald-100 bg-emerald-50/80', 'icon_class' => 'bg-emerald-100 text-emerald-700', 'text_class' => 'text-emerald-800', 'bar_class' => 'bg-emerald-500'],
         ['status' => 'rejected', 'label' => 'Ditolak', 'value' => $stats['rejected'], 'icon' => 'cancel', 'surface' => 'border-rose-100 bg-rose-50/80', 'icon_class' => 'bg-rose-100 text-rose-700', 'text_class' => 'text-rose-800', 'bar_class' => 'bg-rose-500'],
     ];
+    if ($readOnlyHistory) {
+        $statusMap = ['approved' => $statusMap['approved']];
+        $statusSummary = array_values(array_filter($statusSummary, fn ($item) => $item['status'] === 'approved'));
+    }
     $activeSessionCount = $stats['counting'] + $stats['pending_approval'];
     $progressDenominator = max(1, (int) $stats['total']);
 @endphp
@@ -22,10 +26,10 @@
 
     <div class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 border-l-4 border-l-[#DC143C] bg-white p-4 shadow-2xs">
         <div>
-            <h1 class="font-poppins text-xl font-semibold">Stock Opname</h1>
-            <p class="mt-0.5 text-xs text-secondary">Catat jumlah fisik dan tindak lanjuti selisih stok.</p>
+            <h1 class="font-poppins text-xl font-semibold">{{ $readOnlyHistory ? 'Riwayat Stock Opname' : 'Stock Opname' }}</h1>
+            <p class="mt-0.5 text-xs text-secondary">{{ $readOnlyHistory ? "Riwayat opname yang sudah disetujui." : "Catat jumlah fisik dan tindak lanjuti selisih stok." }}</p>
         </div>
-        @if(auth()->user()->hasPermissionTo('opname.manage'))
+        @if(!auth()->user()->hasRole('purchasing') && auth()->user()->hasPermissionTo('opname.manage'))
             <a href="{{ route('inventory.stock-opname.create') }}" class="rounded-xl bg-primary px-3.5 py-2.5 text-xs font-semibold text-white">Mulai sesi</a>
         @endif
     </div>
@@ -34,15 +38,15 @@
         <p class="rounded-xl bg-green-50 p-3 text-sm text-green-800">{{ session('status') }}</p>
     @endif
 
-    <div class="flex items-start gap-2.5 rounded-xl border border-blue-100 bg-blue-50 px-3.5 py-3 text-xs leading-relaxed text-blue-900">
+    @unless($readOnlyHistory)<div class="flex items-start gap-2.5 rounded-xl border border-blue-100 bg-blue-50 px-3.5 py-3 text-xs leading-relaxed text-blue-900">
         <span class="material-symbols-outlined mt-0.5 text-[17px] text-blue-700">info</span>
         <p>Mulai sesi untuk membuat snapshot saldo. Selesaikan hitung sebelum aktivitas stok dilanjutkan di lokasi tersebut.</p>
-    </div>
+    </div>@endunless
 
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" aria-label="Ringkasan siklus Stock Opname">
         <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3.5">
-            <div><p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Ringkasan siklus</p><p class="mt-1 text-sm font-semibold text-slate-900">{{ $stats['total'] }} sesi terpantau</p></div>
-            <span class="inline-flex shrink-0 items-center gap-1.5 rounded-full {{ $activeSessionCount > 0 ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-800' }} px-2.5 py-1 text-[10px] font-semibold"><span class="h-1.5 w-1.5 rounded-full {{ $activeSessionCount > 0 ? 'bg-amber-500' : 'bg-emerald-500' }}"></span>{{ $activeSessionCount }} perlu tindakan</span>
+            <div><p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{{ $readOnlyHistory ? 'Riwayat disetujui' : 'Ringkasan siklus' }}</p><p class="mt-1 text-sm font-semibold text-slate-900">{{ $stats['total'] }} {{ $readOnlyHistory ? 'sesi disetujui' : 'sesi terpantau' }}</p></div>
+            @unless($readOnlyHistory)<span class="inline-flex shrink-0 items-center gap-1.5 rounded-full {{ $activeSessionCount > 0 ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-800' }} px-2.5 py-1 text-[10px] font-semibold"><span class="h-1.5 w-1.5 rounded-full {{ $activeSessionCount > 0 ? 'bg-amber-500' : 'bg-emerald-500' }}"></span>{{ $activeSessionCount }} perlu tindakan</span>@endunless
         </div>
         <div class="px-4 pt-3"><div class="flex h-1.5 overflow-hidden rounded-full bg-slate-100" aria-label="Komposisi status sesi">
             @foreach($statusSummary as $item)
@@ -99,7 +103,7 @@
                 · {{ $opname->period_type === 'weekly' ? 'Mingguan' : 'Akhir Bulan' }}
             </p>
             <p class="mt-0.5 text-[11px] text-gray-400">Snapshot {{ $opname->snapshot_at->format('d M Y, H:i') }} · {{ $opname->items->count() }} produk · {{ $opname->counter->name }}</p>
-            <div class="mt-2 flex items-center justify-end gap-2 text-[11px]"><span class="font-semibold text-primary">{{ $opname->status === 'counting' ? 'Lanjut hitung' : ($opname->status === 'pending_approval' && auth()->user()->hasPermissionTo('opname.approve') ? 'Tinjau hasil' : 'Buka sesi') }} <span aria-hidden="true">→</span></span></div>
+            <div class="mt-2 flex items-center justify-end gap-2 text-[11px]"><span class="font-semibold text-primary">{{ $readOnlyHistory ? 'Lihat hasil' : ($opname->status === 'counting' ? 'Lanjut hitung' : ($opname->status === 'pending_approval' && auth()->user()->hasPermissionTo('opname.approve') ? 'Tinjau hasil' : 'Buka sesi')) }} <span aria-hidden="true">→</span></span></div>
         </a>
         @empty
         <div class="rounded-2xl border border-outline bg-white p-8 text-center text-sm text-secondary">
@@ -123,9 +127,9 @@
         <div>
             <p class="mb-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">Kontrol Persediaan</p>
             <h1 class="font-poppins text-2xl font-semibold">Stock Opname</h1>
-            <p class="mt-1 max-w-2xl text-sm text-gray-500">Pantau sesi hitung fisik, tindak lanjuti selisih, dan teruskan hasil untuk persetujuan.</p>
+            <p class="mt-1 max-w-2xl text-sm text-gray-500">{{ $readOnlyHistory ? "Riwayat Stock Opname yang sudah disetujui sebagai acuan saldo." : "Pantau sesi hitung fisik, tindak lanjuti selisih, dan teruskan hasil untuk persetujuan." }}</p>
         </div>
-        @if(auth()->user()->hasPermissionTo('opname.manage'))
+        @if(!auth()->user()->hasRole('purchasing') && auth()->user()->hasPermissionTo('opname.manage'))
             <a href="{{ route('inventory.stock-opname.create') }}" class="inline-flex items-center gap-2 rounded-xl bg-[#DC143C] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#b01030] transition-colors">
                 <span class="material-symbols-outlined text-[18px]">add</span> Buat Stock Opname
             </a>
@@ -178,10 +182,10 @@
             <label class="mb-1.5 block text-xs font-medium text-gray-600">Status</label>
             <select name="status" class="rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
                 <option value="">Semua status</option>
-                <option value="counting" @selected(request('status') === 'counting')>Sedang dihitung</option>
-                <option value="pending_approval" @selected(request('status') === 'pending_approval')>Menunggu persetujuan</option>
+                @unless($readOnlyHistory)<option value="counting" @selected(request('status') === 'counting')>Sedang dihitung</option>
+                <option value="pending_approval" @selected(request('status') === 'pending_approval')>Menunggu persetujuan</option>@endunless
                 <option value="approved" @selected(request('status') === 'approved')>Disetujui</option>
-                <option value="rejected" @selected(request('status') === 'rejected')>Ditolak</option>
+                @unless($readOnlyHistory)<option value="rejected" @selected(request('status') === 'rejected')>Ditolak</option>@endunless
             </select>
         </div>
         <div>
@@ -261,7 +265,7 @@
                     <td class="px-6 py-4">
                         <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold {{ $st['class'] }}"><span class="material-symbols-outlined text-[14px]">{{ $st['icon'] }}</span>{{ $st['label'] }}</span>
                     </td>
-                    <td class="px-6 py-4 text-right"><a href="{{ route('inventory.stock-opname.show', $opname) }}" class="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 transition-colors hover:border-primary/40 hover:text-primary">{{ $opname->status === 'counting' ? 'Lanjut hitung' : ($opname->status === 'pending_approval' && auth()->user()->hasPermissionTo('opname.approve') ? 'Tinjau' : 'Detail') }}<span class="material-symbols-outlined text-[14px]">arrow_forward</span></a></td>
+                    <td class="px-6 py-4 text-right"><a href="{{ route('inventory.stock-opname.show', $opname) }}" class="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 transition-colors hover:border-primary/40 hover:text-primary">{{ $readOnlyHistory ? 'Lihat hasil' : ($opname->status === 'counting' ? 'Lanjut hitung' : ($opname->status === 'pending_approval' && auth()->user()->hasPermissionTo('opname.approve') ? 'Tinjau' : 'Detail')) }}<span class="material-symbols-outlined text-[14px]">arrow_forward</span></a></td>
                 </tr>
                 @empty
                 <tr>

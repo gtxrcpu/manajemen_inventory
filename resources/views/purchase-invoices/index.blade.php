@@ -70,7 +70,7 @@
     </div>
 
     {{-- Filter Bar Mobile --}}
-    <form method="GET" class="space-y-2 rounded-2xl border border-gray-200 bg-white p-3.5 shadow-2xs">
+    <form method="GET" data-invoice-filter-form class="space-y-2 rounded-2xl border border-gray-200 bg-white p-3.5 shadow-2xs">
         <div class="relative">
             <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[17px] text-gray-400 pointer-events-none">search</span>
             <input name="q" value="{{ request('q') }}" placeholder="Cari nomor faktur atau supplier..." class="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-gray-200 bg-gray-50/50 focus:bg-white focus:border-primary outline-none transition">
@@ -82,7 +82,6 @@
                     <option value="{{ $statusKey }}" @selected(request('status') === $statusKey)>{{ $label }}</option>
                 @endforeach
             </select>
-            <button type="submit" class="rounded-xl bg-gray-900 px-4 py-2 text-xs font-semibold text-white">Filter</button>
             @if(request()->hasAny(['q', 'status']))
                 <a href="{{ route('purchase-invoices.index') }}" class="rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600">Reset</a>
             @endif
@@ -195,7 +194,7 @@
     </div>
 
     {{-- Search & Filter Section --}}
-    <form method="GET" class="flex flex-col sm:flex-row gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-2xs">
+    <form method="GET" data-invoice-filter-form class="flex flex-col sm:flex-row gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-2xs">
         <div class="relative flex-1">
             <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-gray-400 pointer-events-none">search</span>
             <input name="q" value="{{ request('q') }}" placeholder="Cari nomor faktur atau nama supplier..." class="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-gray-200 bg-gray-50/50 placeholder:text-gray-400 focus:bg-white focus:border-[#DC143C] focus:ring-1 focus:ring-[#DC143C]/20 outline-none transition">
@@ -209,10 +208,6 @@
             </select>
             <span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-gray-400 pointer-events-none">expand_more</span>
         </div>
-        <button type="submit" class="inline-flex items-center justify-center gap-1.5 rounded-xl bg-gray-900 px-5 py-2 text-sm font-semibold text-white hover:bg-gray-800 active:scale-95 transition">
-            <span class="material-symbols-outlined text-[16px]">filter_list</span>
-            Filter
-        </button>
         @if(request()->hasAny(['q', 'status']))
             <a href="{{ route('purchase-invoices.index') }}" class="inline-flex items-center justify-center rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50 active:scale-95 transition">
                 Reset
@@ -316,4 +311,24 @@
 
     {{ $invoices->links() }}
 </section>
+@endsection
+
+@section('page-scripts')
+    (() => {
+        document.querySelectorAll('[data-invoice-filter-form]').forEach(form => {
+            const status = form.querySelector('select[name="status"]');
+            const search = form.querySelector('input[name="q"]');
+            let searchTimer;
+
+            status?.addEventListener('change', () => {
+                clearTimeout(searchTimer);
+                form.requestSubmit();
+            });
+
+            search?.addEventListener('input', () => {
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(() => form.requestSubmit(), 400);
+            });
+        });
+    })();
 @endsection

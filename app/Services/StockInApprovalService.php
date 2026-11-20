@@ -13,6 +13,7 @@ class StockInApprovalService
     public function __construct(
         private readonly AdminAuditLogger $auditLogger,
         private readonly LowStockAlertService $lowStockAlerts,
+        private readonly PurchasingService $purchasingService,
     ) {}
 
     public function approve(StockIn $stockIn): StockIn
@@ -42,6 +43,7 @@ class StockInApprovalService
             }
 
             $receipt->update(['status' => 'approved', 'decision_by' => auth()->id(), 'decided_at' => now(), 'rejection_reason' => null, 'rejection_category' => null]);
+            if ($receipt->purchase_order_id) $this->purchasingService->syncReceiptProgress((int) $receipt->purchase_order_id);
             $this->auditLogger->record('stock_in.approved', $receipt, [
                 'status_before' => 'pending_approval',
                 'status_after' => 'approved',
@@ -67,6 +69,7 @@ class StockInApprovalService
             $this->assertReviewerCanDecide($receipt);
 
             $receipt->update(['status' => 'rejected', 'decision_by' => auth()->id(), 'decided_at' => now(), 'rejection_category' => $category, 'rejection_reason' => $reason]);
+            if ($receipt->purchase_order_id) $this->purchasingService->syncReceiptProgress((int) $receipt->purchase_order_id);
             $this->auditLogger->record('stock_in.rejected', $receipt, [
                 'status_before' => 'pending_approval',
                 'status_after' => 'rejected',

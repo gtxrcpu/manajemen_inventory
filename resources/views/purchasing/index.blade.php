@@ -3,11 +3,16 @@
 @php
     $statusLabels = [
         'pending_approval' => 'Menunggu persetujuan',
-        'approved'         => 'Disetujui otomatis',
-        'rejected'         => 'Dibatalkan',
+        'approved'         => 'Disetujui',
+        'rejected'         => 'Ditolak Management',
         'ordered'          => 'PO diterbitkan',
         'issued'           => 'Menunggu barang',
         'received'         => 'Diterima',
+        'draft'             => 'Draft PO',
+        'open'              => 'Open · Menunggu barang',
+        'partially_received' => 'Penerimaan sebagian',
+        'completed'         => 'Selesai diterima',
+        'cancelled'         => 'Dibatalkan',
     ];
     $poStatusLabels = ['closed_with_variance' => 'Ditutup dengan selisih'];
     $statusClasses = [
@@ -17,6 +22,11 @@
         'ordered'          => 'bg-indigo-100 text-indigo-800',
         'issued'           => 'bg-orange-100 text-orange-800',
         'received'         => 'bg-green-100 text-green-800',
+        'draft'             => 'bg-slate-100 text-slate-700',
+        'open'              => 'bg-orange-100 text-orange-800',
+        'partially_received' => 'bg-amber-100 text-amber-800',
+        'completed'         => 'bg-green-100 text-green-800',
+        'cancelled'         => 'bg-rose-100 text-rose-700',
         'closed_with_variance' => 'bg-violet-100 text-violet-800',
     ];
 @endphp
@@ -34,6 +44,7 @@
                 <a href="{{ route('purchasing.requests.create') }}" class="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-primary px-3.5 text-xs font-semibold text-white shadow-sm">
                     <span class="material-symbols-outlined text-[17px] leading-none">add</span>Buat PR
                 </a>
+                <a href="{{ route('purchasing.orders.direct.create') }}" class="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-outline bg-white px-3.5 text-xs font-semibold text-gray-700"><span class="material-symbols-outlined text-[17px] leading-none">receipt_long</span>Buat PO langsung</a>
             @endif
             @if(auth()->user()->hasPermissionTo('invoice.view'))
                 <a href="{{ route('purchase-invoices.index') }}" class="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-outline bg-white px-3.5 text-xs font-semibold text-gray-700">
@@ -95,8 +106,12 @@
                     <option value="active" @selected(request('po_status') === 'active')>PO aktif</option>
                     <option value="follow_up" @selected(request('po_status') === 'follow_up')>Perlu tindak lanjut</option>
                     <option value="ordered" @selected(request('po_status') === 'ordered')>PO diterbitkan</option>
-                    <option value="issued" @selected(request('po_status') === 'issued')>Menunggu barang</option>
-                    <option value="received" @selected(request('po_status') === 'received')>Diterima</option>
+                    <option value="draft" @selected(request('po_status') === 'draft')>Draft</option>
+                    <option value="open" @selected(request('po_status') === 'open')>Open · Menunggu barang</option>
+                    <option value="partially_received" @selected(request('po_status') === 'partially_received')>Penerimaan sebagian</option>
+                    <option value="completed" @selected(request('po_status') === 'completed')>Selesai diterima</option>
+                    <option value="issued" @selected(request('po_status') === 'issued')>Menunggu barang (data lama)</option>
+                    <option value="received" @selected(request('po_status') === 'received')>Diterima (data lama)</option>
                     <option value="closed_with_variance" @selected(request('po_status') === 'closed_with_variance')>Ditutup dengan selisih</option>
                 </select>
             </div>
@@ -114,7 +129,7 @@
             <div class="flex items-start justify-between gap-2">
                 <div>
                     <p class="font-semibold text-sm text-gray-800">{{ $pr->reference }}</p>
-                    <p class="mt-0.5 text-xs text-gray-500">{{ $pr->requester->name }} · {{ $pr->created_at->format('d M Y') }}</p>
+                    <p class="mt-0.5 text-xs text-gray-500">{{ $pr->requester->name }} · {{ $pr->created_at->copy()->timezone('Asia/Jakarta')->format('d M Y') }}</p>
                 </div>
                 <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold {{ $statusClasses[$pr->status] ?? 'bg-gray-100 text-gray-700' }}">{{ $statusLabels[$pr->status] ?? $pr->status }}</span>
             </div>
@@ -164,19 +179,22 @@
 <section class="space-y-6">
 
     {{-- Page Header --}}
-    <div class="flex items-center justify-between">
-        <div>
+    <div class="flex flex-wrap items-center justify-between gap-4">
+        <div class="min-w-0 flex-1">
             <h1 class="font-poppins text-2xl font-semibold">Pengadaan</h1>
-            <p class="mt-1 text-sm text-gray-500">PR disetujui otomatis; Purchasing menerbitkan PO dan Staff Gudang memeriksa penerimaan.</p>
+            <p class="mt-1 text-sm text-gray-500">Management meninjau PR sebelum Purchasing menerbitkan PO dan Staff Gudang memeriksa penerimaan.</p>
         </div>
-        @if(auth()->user()->hasPermissionTo('purchasing.manage'))
-            <a href="{{ route('purchasing.requests.create') }}" class="inline-flex items-center gap-2 rounded-xl bg-[#DC143C] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#b01030] transition-colors">
-                <span class="material-symbols-outlined text-[18px]">add</span> Buat Purchase Request
-            </a>
-        @endif
-        @if(auth()->user()->hasPermissionTo('invoice.view'))
-            <a href="{{ route('purchase-invoices.index') }}" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700"><span class="material-symbols-outlined text-[18px]">receipt_long</span> Faktur Pembelian</a>
-        @endif
+        <div class="flex flex-wrap items-center gap-2.5">
+            @if(auth()->user()->hasPermissionTo('purchasing.manage'))
+                <a href="{{ route('purchasing.requests.create') }}" class="inline-flex min-h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-[#DC143C] px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#b01030]">
+                    <span class="material-symbols-outlined text-[17px] leading-none">add</span> Buat Purchase Request
+                </a>
+                <a href="{{ route('purchasing.orders.direct.create') }}" class="inline-flex min-h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700"><span class="material-symbols-outlined text-[17px] leading-none">receipt_long</span>Buat PO langsung</a>
+            @endif
+            @if(auth()->user()->hasPermissionTo('invoice.view'))
+                <a href="{{ route('purchase-invoices.index') }}" class="inline-flex min-h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700"><span class="material-symbols-outlined text-[17px] leading-none">receipt_long</span>Faktur Pembelian</a>
+            @endif
+        </div>
     </div>
 
     @if(session('status'))
@@ -242,8 +260,12 @@
                 <option value="active" @selected(request('po_status') === 'active')>PO aktif</option>
                 <option value="follow_up" @selected(request('po_status') === 'follow_up')>Perlu tindak lanjut</option>
                 <option value="ordered" @selected(request('po_status') === 'ordered')>PO diterbitkan</option>
-                <option value="issued" @selected(request('po_status') === 'issued')>Menunggu / penerimaan sebagian</option>
-                <option value="received" @selected(request('po_status') === 'received')>Diterima</option>
+                <option value="draft" @selected(request('po_status') === 'draft')>Draft</option>
+                <option value="open" @selected(request('po_status') === 'open')>Open · Menunggu barang</option>
+                <option value="partially_received" @selected(request('po_status') === 'partially_received')>Penerimaan sebagian</option>
+                <option value="completed" @selected(request('po_status') === 'completed')>Selesai diterima</option>
+                <option value="issued" @selected(request('po_status') === 'issued')>Menunggu barang (data lama)</option>
+                <option value="received" @selected(request('po_status') === 'received')>Diterima (data lama)</option>
                 <option value="closed_with_variance" @selected(request('po_status') === 'closed_with_variance')>Ditutup dengan selisih</option>
             </select>
         </div>
@@ -277,7 +299,7 @@
                 <tr data-purchasing-search-item class="hover:bg-gray-50/50 transition-colors">
                     <td class="px-6 py-4">
                         <p class="font-semibold text-gray-800">{{ $pr->reference }}</p>
-                        <p class="text-xs text-gray-400 mt-0.5">{{ $pr->created_at->format('d M Y') }}</p>
+                        <p class="text-xs text-gray-400 mt-0.5">{{ $pr->created_at->copy()->timezone('Asia/Jakarta')->format('d M Y') }}</p>
                     </td>
                     <td class="px-6 py-4">
                         <div class="flex items-center gap-2">

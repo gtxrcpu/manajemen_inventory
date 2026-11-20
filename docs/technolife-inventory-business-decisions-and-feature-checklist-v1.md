@@ -45,7 +45,7 @@ Dokumen ini melengkapi `technolife-inventory-roadmap-v3.md`, `technolife-invento
 
 | Topik | Rekomendasi | Alasan dan batas |
 |---|---|---|
-| Purchase Request | Pertahankan PR yang sudah ada sebagai bukti kebutuhan; PO menjadi komitmen ke supplier. Pertahankan perilaku auto-approve saat ini sampai otorisasi budget dipastikan. | Jangan menambah approval PR baru tanpa kebutuhan kontrol budget yang jelas. Auto-approve perlu ditinjau karena sekarang belum menjadi kontrol persetujuan nyata. |
+| Purchase Request | PR menjadi bukti kebutuhan dan wajib disetujui Management sebelum Purchasing dapat menerbitkan PO. PO menjadi komitmen ke supplier. | Management meninjau item, jumlah, dan alasan kebutuhan sebelum komitmen pembelian dibuat. Keputusan serta catatan approval disimpan pada PR. |
 | Penerimaan supplier | Catat jumlah datang dan jumlah layak diterima saat pemeriksaan fisik di gudang. Hanya jumlah layak yang menambah saldo. Receipt PO tanpa invoice berstatus turunan **invoice pending** selama `purchase_invoice_id` kosong, lalu ditautkan Purchasing saat dokumen tersedia. | Ini status kelengkapan dokumen, terpisah dari status Stock In. Stock tidak tertahan menunggu administrasi invoice; barang ditolak/rusak tetap terlacak tetapi tidak menjadi saldo tersedia. |
 | Faktur dan harga | Invoice memuat item, kuantitas, harga satuan, diskon, pajak, ongkir/biaya, dan total dokumen secara terpisah. Finance melakukan pencocokan dengan PO dan seluruh receipt terkait. | Item subtotal saja belum tentu sama dengan total tagihan. Sistem perlu menandai selisih dan merekam alasan Finance menerima pengecualian. |
 | Biaya untuk valuasi | WAC memakai harga faktur setelah diskon dokumen dialokasikan proporsional ke item. Tampilkan pajak/ongkir/biaya lain terpisah sebagai caveat; jangan masukkan ke biaya persediaan sampai Finance menetapkan pemetaannya. | Pajak dapat dikreditkan dan perlakuan biaya angkut/biaya lain bergantung kebijakan akuntansi; tidak boleh dikapitalisasi diam-diam. |
@@ -111,7 +111,7 @@ Dokumen ini melengkapi `technolife-inventory-roadmap-v3.md`, `technolife-invento
 **Tujuan:** merekam kebutuhan, komitmen pembelian, barang fisik, dan selisih. **Role:** Purchasing, Staff Gudang, Finance. **Prioritas:** P0/P1. **Estimasi:** 3–6 hari. **Dampak stok:** accepted quantity receipt membuat movement in satu kali.
 
 - [x] Pertahankan PR/PO yang telah ada dan PO yang menargetkan gudang.
-- [x] Pertahankan PR auto-approve untuk saat ini; perubahan approval budget ditunda sampai pemilik budget menetapkan batas dan approver. Jangan membuat approval baru tanpa keputusan tersebut.
+- [x] Terapkan persetujuan Management pada PR; PO hanya dapat dibuat dari PR yang disetujui. PR pending atau ditolak tidak dapat diterbitkan menjadi PO.
 - [x] Tetapkan SOP hitung datang, layak diterima, batch, expiry, barang lebih/kurang/rusak; kelebihan PO hanya masuk saldo setelah Purchasing menyetujui dan persetujuan dicatat.
 - [x] Receipt invoice-pending dapat ditautkan ke PO/invoice yang tepat tanpa membuat movement baru.
 - [x] Cegah retry receipt ganda dengan idempotency key per halaman submit, ditambah unique movement per baris receipt.

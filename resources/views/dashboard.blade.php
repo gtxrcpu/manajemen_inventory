@@ -36,7 +36,7 @@
                 @endif
             </div>
             <div class="flex items-center justify-between pt-0.5 text-[11px] font-semibold">
-                <span class="text-secondary">{{ $inventorySummaryAvailable ? 'Ringkasan stok tersedia' : 'Saldo stok belum dicatat' }}</span>
+                <span class="text-secondary">Saldo stok dihitung real-time</span>
             </div>
         </div>
     </div>
@@ -51,7 +51,7 @@
                     'Faktur Pembelian' => route('purchase-invoices.index'),
                     'Stok Seluruh Gudang' => route('reports.index', ['report' => 'stock']),
                     'Pantau Gudang' => route('inventory.stock.index'),
-                    'Review Opname' => route('inventory.stock-opname.index'),
+                    'Riwayat Opname' => route('inventory.stock-opname.index'),
                     'Validasi Penerimaan' => route('inventory.stock-in.purchase-orders'),
                     'Barang Keluar' => route('inventory.stock-out.create'),
                     'Terima Transfer', 'Terima Barang' => route('inventory.transfers.index'),
@@ -73,7 +73,7 @@
 
     <!-- 3. Alert Summary Cards -->
     <div class="grid grid-cols-2 gap-3 w-full">
-        <a href="{{ $canViewLowStock ? route('low-stock.index') : '#' }}" class="bg-primary-container p-3.5 rounded-2xl flex flex-col justify-between shadow-xs relative active:opacity-90 transition-opacity">
+        <a href="{{ $canViewLowStock ? route('low-stock.index') : route('inventory.stock.index') }}" class="bg-primary-container p-3.5 rounded-2xl flex flex-col justify-between shadow-xs relative active:opacity-90 transition-opacity">
             <div>
                 <div class="flex items-center justify-between">
                     <div class="w-8 h-8 rounded-full bg-error-container flex items-center justify-center text-primary">
@@ -82,9 +82,9 @@
                     <span class="material-symbols-outlined text-primary text-[18px]">chevron_right</span>
                 </div>
                 <span class="inline-block mt-3 text-[11px] font-semibold tracking-wider text-primary uppercase">STOK MAU HABIS</span>
-                <div data-low-stock-alert-count class="font-poppins text-lg font-semibold text-primary mt-0.5">{{ $canViewLowStock ? $lowStockAlertCount.' Alert' : '—' }}</div>
+                <div data-low-stock-alert-count class="font-poppins text-lg font-semibold text-primary mt-0.5">{{ $lowStockAlertCount }} alert</div>
             </div>
-            <p class="text-[11px] text-on-surface-variant mt-1 line-clamp-1">{{ $canViewLowStock ? 'Produk di bawah batas minimum' : 'Tidak tersedia untuk role ini' }}</p>
+            <p class="text-[11px] text-on-surface-variant mt-1 line-clamp-1">Saldo di bawah ambang minimum</p>
         </a>
         <div class="bg-surface-container-high p-3.5 rounded-2xl flex flex-col justify-between shadow-xs relative active:opacity-90 transition-opacity">
             <div>
@@ -95,15 +95,15 @@
                     <span class="material-symbols-outlined text-warning text-[18px]">chevron_right</span>
                 </div>
                 <span class="inline-block mt-3 text-[11px] font-semibold tracking-wider text-warning uppercase">MAU KADALUARSA</span>
-                <div class="font-poppins text-lg font-semibold text-warning mt-0.5">{{ $inventorySummaryAvailable ? '0 Bahan' : '—' }}</div>
+                <div data-expiring-batch-count class="font-poppins text-lg font-semibold text-warning mt-0.5">{{ $expiringBatchCount }} batch</div>
             </div>
-            <p class="text-[11px] text-secondary mt-1 line-clamp-1">{{ $inventorySummaryAvailable ? 'Periksa tanggal kedaluwarsa' : 'Data batch belum tersedia' }}</p>
+            <p class="text-[11px] text-secondary mt-1 line-clamp-1">Kedaluwarsa atau tiba dalam 30 hari</p>
         </div>
     </div>
 
     <!-- 4. Quick Action Cards (Mobile) -->
     <div class="flex flex-col gap-3 w-full">
-        @if(auth()->user()->hasPermissionTo('opname.manage') || auth()->user()->hasPermissionTo('opname.approve'))
+        @if(auth()->user()->hasPermissionTo('opname.view'))
         <a href="{{ route('inventory.stock-opname.index') }}" class="bg-white border border-gray-200 rounded-xl p-4 active:scale-[0.98] transition-transform">
             <div class="flex items-start gap-3">
                 <div class="w-11 h-11 rounded-lg bg-gray-900 flex items-center justify-center shrink-0">
@@ -111,12 +111,12 @@
                 </div>
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center justify-between gap-2 mb-1">
-                        <h3 class="font-poppins text-sm font-semibold text-gray-900">Stock Opname</h3>
+                        <h3 class="font-poppins text-sm font-semibold text-gray-900">{{ auth()->user()->hasRole('purchasing') ? 'Riwayat Stock Opname' : 'Stock Opname' }}</h3>
                         <span class="text-[9px] font-medium text-gray-500 uppercase tracking-wider shrink-0">Verifikasi</span>
                     </div>
-                    <p class="text-xs text-gray-600 leading-relaxed mb-2">Cocokkan stok fisik dengan sistem untuk cegah selisih.</p>
+                    <p class="text-xs text-gray-600 leading-relaxed mb-2">{{ auth()->user()->hasRole('purchasing') ? 'Lihat hasil opname yang sudah disetujui sebagai referensi pengadaan.' : 'Cocokkan stok fisik dengan sistem untuk cegah selisih.' }}</p>
                     <div class="flex items-center gap-1 text-gray-900 text-xs font-semibold">
-                        <span>Mulai Verifikasi</span>
+                        <span>{{ auth()->user()->hasRole('purchasing') ? 'Lihat Riwayat' : 'Mulai Verifikasi' }}</span>
                         <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
                     </div>
                 </div>
@@ -169,9 +169,9 @@
     <section class="rounded-2xl border border-outline bg-white p-4">
         <div class="flex items-center justify-between"><h2 class="font-poppins font-semibold">Saldo stok aktual</h2><span class="text-[11px] text-secondary">Pembaruan otomatis</span></div>
         <div id="mobile-live-stock" class="mt-3 space-y-2">
-            @forelse($stockItems as $stock)
+            @forelse($stockItems->take(5) as $stock)
                 <div class="flex items-center gap-3 rounded-xl bg-surface-container-lowest p-2.5">
-                    <img src="{{ $stock->image_path ? asset('storage/'.$stock->image_path) : asset('images/product-placeholder.svg') }}" class="h-11 w-11 rounded-lg object-cover" alt="">
+                    <img src="{{ $stock->image_path ? asset('storage/'.$stock->image_path) : asset('images/product-placeholder.svg') }}" class="h-11 w-11 rounded-lg object-cover" alt="" loading="lazy" decoding="async">
                     <div class="min-w-0 flex-1">
                         <p class="truncate text-sm font-semibold">{{ $stock->name }}</p>
                         <p class="text-xs text-secondary">{{ $stock->sku }} · {{ $stock->category->name }}</p>
@@ -182,6 +182,9 @@
                 <p class="py-4 text-center text-sm text-secondary">Belum ada saldo. Catat transaksi stok masuk untuk memulai.</p>
             @endforelse
         </div>
+        @if($stockItems->count() > 5)
+            <a href="{{ route('inventory.stock.index') }}" class="mt-3 inline-flex w-full items-center justify-center rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-primary">Lihat semua {{ $stockItems->count() }} produk</a>
+        @endif
         @if(auth()->user()->hasPermissionTo('stock.manage'))
         <div class="mt-3 flex flex-wrap gap-2">
             @if($isWarehouse)
@@ -224,7 +227,7 @@
             <p class="mt-1 text-xs text-slate-500">
                 <span class="font-medium text-slate-700">{{ $activeLocationCount }} lokasi</span> &middot;
                 <span class="font-medium text-slate-700">{{ $activeProductCount }} produk aktif</span>
-                <span class="text-slate-400">({{ $inventorySummaryAvailable ? 'Ringkasan stok tersedia' : 'Saldo stok belum dicatat' }})</span>
+                <span class="text-slate-400">(Saldo stok dihitung real-time)</span>
             </p>
         </div>
 
@@ -246,7 +249,7 @@
                     'Faktur Pembelian' => route('purchase-invoices.index'),
                     'Stok Seluruh Gudang' => route('reports.index', ['report' => 'stock']),
                     'Pantau Gudang' => route('inventory.stock.index'),
-                    'Review Opname' => route('inventory.stock-opname.index'),
+                    'Riwayat Opname' => route('inventory.stock-opname.index'),
                     'Validasi Penerimaan' => route('inventory.stock-in.purchase-orders'),
                     'Barang Keluar' => route('inventory.stock-out.create'),
                     'Terima Transfer', 'Terima Barang' => route('inventory.transfers.index'),
@@ -361,11 +364,11 @@
                     </div>
                 </div>
                 <div>
-                    <p class="text-xl font-bold font-poppins text-slate-900">&mdash;</p>
-                    <p class="text-xs text-slate-500 mt-0.5">Batch belum tersedia</p>
+                    <p data-expiring-batch-count class="text-xl font-bold font-poppins text-slate-900">{{ $expiringBatchCount }} batch</p>
+                    <p class="text-xs text-slate-500 mt-0.5">Kedaluwarsa atau tiba dalam 30 hari</p>
                 </div>
                 <div class="mt-3 pt-2.5 border-t border-slate-100 text-[11px] text-slate-400">
-                    Pantau umur simpan barang
+                    Saldo batch yang masih tersedia
                 </div>
             </div>
         @endif
@@ -389,7 +392,7 @@
         </a>
 
         {{-- Card 4: Stok Minimum / Alert --}}
-        <a href="{{ $canViewLowStock ? route('low-stock.index') : '#' }}" class="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs hover:border-slate-300 transition-all flex flex-col justify-between group">
+        <a href="{{ $canViewLowStock ? route('low-stock.index') : route('inventory.stock.index') }}" class="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs hover:border-slate-300 transition-all flex flex-col justify-between group">
             <div class="flex items-center justify-between mb-3">
                 <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Stok Minimum</span>
                 <div class="flex h-9 w-9 items-center justify-center rounded-xl {{ $lowStockAlertCount ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-500' }} group-hover:scale-105 transition-transform">
@@ -398,12 +401,12 @@
             </div>
             <div>
                 <p data-low-stock-alert-count class="text-xl font-bold font-poppins {{ $lowStockAlertCount ? 'text-rose-700' : 'text-slate-900' }}">
-                    {{ $canViewLowStock ? $lowStockAlertCount : '—' }}
+                    {{ $lowStockAlertCount }} alert
                 </p>
-                <p class="text-xs text-slate-500 mt-0.5">{{ $canViewLowStock ? 'Produk perlu restock' : 'Tidak tersedia' }}</p>
+                <p class="text-xs text-slate-500 mt-0.5">Saldo di bawah ambang minimum</p>
             </div>
             <div class="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] font-semibold {{ $lowStockAlertCount ? 'text-rose-700' : 'text-slate-400' }}">
-                <span>{{ $lowStockAlertCount ? 'Lihat Peringatan' : 'Stok Terkendali' }}</span>
+                <span data-low-stock-action data-can-view="{{ $canViewLowStock ? 'true' : 'false' }}">{{ $lowStockAlertCount ? ($canViewLowStock ? 'Lihat Peringatan' : 'Lihat Data Stok') : 'Tidak ada alert aktif' }}</span>
                 <span class="material-symbols-outlined text-[14px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
             </div>
         </a>
@@ -527,7 +530,7 @@
                                 </td>
                                 <td class="py-3.5 px-3">
                                     <a href="{{ route('inventory.stock.show', $stock) }}" class="flex items-center gap-2.5 group">
-                                        <img src="{{ $stock->image_path ? asset('storage/'.$stock->image_path) : asset('images/product-placeholder.svg') }}" alt="" class="w-9 h-9 rounded-lg object-cover border border-slate-100 shrink-0">
+                                        <img src="{{ $stock->image_path ? asset('storage/'.$stock->image_path) : asset('images/product-placeholder.svg') }}" alt="" class="w-9 h-9 rounded-lg object-cover border border-slate-100 shrink-0" loading="lazy" decoding="async">
                                         <div>
                                             <div class="font-semibold text-slate-900 group-hover:text-[#DC143C] transition-colors leading-tight">{{ $stock->name }}</div>
                                             <span class="text-[11px] text-slate-400">{{ $stock->unit->symbol }}</span>
@@ -544,9 +547,9 @@
                                     <span class="text-[11px] font-normal text-slate-400 ml-0.5">{{ $stock->unit->symbol }}</span>
                                 </td>
                                 <td class="py-3.5 px-3 text-center">
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold {{ $stock->current_stock > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60' : 'bg-rose-50 text-rose-700 border border-rose-200/60' }}">
-                                        <span class="h-1.5 w-1.5 rounded-full {{ $stock->current_stock > 0 ? 'bg-emerald-500' : 'bg-rose-500' }}"></span>
-                                        {{ $stock->current_stock > 0 ? 'Tersedia' : 'Habis' }}
+                                    <span data-stock-status class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold {{ $stock->current_stock > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60' : 'bg-rose-50 text-rose-700 border border-rose-200/60' }}">
+                                        <span data-stock-status-dot class="h-1.5 w-1.5 rounded-full {{ $stock->current_stock > 0 ? 'bg-emerald-500' : 'bg-rose-500' }}"></span>
+                                        <span data-stock-status-label>{{ $stock->current_stock > 0 ? 'Tersedia' : 'Habis' }}</span>
                                     </span>
                                 </td>
                                 <td class="py-3.5 px-4 text-right">
@@ -575,12 +578,16 @@
             {{-- Table Footer Summary --}}
             <div class="px-6 py-3.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 bg-slate-50/50">
                 <div>
-                    Menampilkan <strong id="table-visible-count" class="font-semibold text-slate-800">{{ $stockItems->count() }}</strong> dari {{ $stockItems->count() }} produk terdaftar
+                    Menampilkan <strong id="table-visible-count" class="font-semibold text-slate-800">{{ $stockItems->count() > 0 ? '1-'.min(5, $stockItems->count()) : '0' }}</strong> dari <strong id="table-filtered-count" class="font-semibold text-slate-800">{{ $stockItems->count() }}</strong> produk sesuai filter
                 </div>
                 <div class="text-[11px] text-slate-400">
-                    Pembaruan saldo otomatis berjalan setiap 10 detik
+                    Saldo dan alert diperbarui otomatis setiap 30 detik
                 </div>
             </div>
+            <nav id="stock-table-pagination" class="{{ $stockItems->count() <= 5 ? 'hidden' : '' }} flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-5 py-3" aria-label="Halaman data saldo stok">
+                <span id="stock-table-page-summary" class="text-xs text-slate-500">Halaman 1</span>
+                <div id="stock-table-page-buttons" class="flex flex-wrap items-center gap-1.5"></div>
+            </nav>
         </section>
 
         {{-- Right: Executive Sidebar (4/12) --}}
@@ -674,51 +681,38 @@
                         <h2 class="text-sm font-semibold font-poppins text-slate-900">Pergerakan Stok</h2>
                         <span class="text-xs text-slate-500">7 hari terakhir</span>
                     </div>
-                    @if($inventorySummaryAvailable)
-                        <div class="flex items-center gap-4 my-3 text-xs text-slate-600 font-medium">
-                            <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#DC143C]"></span><span>Usage (kg)</span></div>
-                            <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#708090]"></span><span>Waste (kg)</span></div>
-                        </div>
-                        <div class="w-full overflow-hidden">
-                            <svg class="w-full h-36 pt-1" viewBox="0 0 380 160" preserveAspectRatio="xMidYMid meet">
-                                <line x1="20" y1="20" x2="370" y2="20" stroke="#F1F1F5" stroke-dasharray="3,3" stroke-width="1"/>
-                                <line x1="20" y1="60" x2="370" y2="60" stroke="#F1F1F5" stroke-dasharray="3,3" stroke-width="1"/>
-                                <line x1="20" y1="100" x2="370" y2="100" stroke="#F1F1F5" stroke-dasharray="3,3" stroke-width="1"/>
-                                <line x1="20" y1="140" x2="370" y2="140" stroke="#EAEAEA" stroke-width="1"/>
-                                <g transform="translate(30,0)"><rect x="0" y="30" width="12" height="110" rx="2" fill="#DC143C"/><rect x="14" y="105" width="12" height="35" rx="2" fill="#708090"/><text x="13" y="154" text-anchor="middle" font-size="9" fill="#888">1 Oct</text></g>
-                                <g transform="translate(100,0)"><rect x="0" y="20" width="12" height="120" rx="2" fill="#DC143C"/><rect x="14" y="115" width="12" height="25" rx="2" fill="#708090"/><text x="13" y="154" text-anchor="middle" font-size="9" fill="#888">2 Oct</text></g>
-                                <g transform="translate(170,0)"><rect x="0" y="35" width="12" height="105" rx="2" fill="#DC143C"/><rect x="14" y="110" width="12" height="30" rx="2" fill="#708090"/><text x="13" y="154" text-anchor="middle" font-size="9" fill="#888">3 Oct</text></g>
-                                <g transform="translate(240,0)"><rect x="0" y="25" width="12" height="115" rx="2" fill="#DC143C"/><rect x="14" y="105" width="12" height="35" rx="2" fill="#708090"/><text x="13" y="154" text-anchor="middle" font-size="9" fill="#888">4 Oct</text></g>
-                                <g transform="translate(310,0)"><rect x="0" y="45" width="12" height="95" rx="2" fill="#DC143C"/><rect x="14" y="115" width="12" height="25" rx="2" fill="#708090"/><text x="13" y="154" text-anchor="middle" font-size="9" fill="#888">5 Oct</text></g>
-                            </svg>
-                        </div>
-                    @else
-                        <div class="py-8 text-center text-xs text-slate-400">
-                            <span class="material-symbols-outlined text-[28px] text-slate-300 mb-1">analytics</span>
-                            <p class="font-medium text-slate-600">Belum ada transaksi stok untuk diringkas.</p>
-                            <p class="text-[11px] text-slate-400 mt-0.5">Transaksi masuk dan keluar akan tampil di sini.</p>
-                        </div>
-                    @endif
+                    <div class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] font-medium text-slate-600">
+                        <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-emerald-500"></span>Masuk <strong data-movement-in-total class="text-slate-800">{{ collect($stockMovementTrend)->sum('incoming') }}</strong> baris</span>
+                        <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-[#DC143C]"></span>Keluar <strong data-movement-out-total class="text-slate-800">{{ collect($stockMovementTrend)->sum('outgoing') }}</strong> baris</span>
+                    </div>
+                    <div id="stock-movement-chart" class="mt-3 grid grid-cols-7 gap-1.5" role="img" aria-label="Jumlah baris mutasi masuk dan keluar per hari selama 7 hari terakhir">
+                        @php
+                            $maxMovementRows = max(1, collect($stockMovementTrend)->max(fn ($day) => max($day['incoming'], $day['outgoing'])));
+                        @endphp
+                        @foreach($stockMovementTrend as $day)
+                            <div class="min-w-0 text-center" title="{{ $day['label'] }} · masuk {{ $day['incoming'] }} baris · keluar {{ $day['outgoing'] }} baris">
+                                <div class="flex h-28 items-end justify-center gap-1 rounded-lg bg-slate-50 px-1 pb-1" style="background-image:linear-gradient(to bottom, transparent 32%, #e2e8f0 33%, transparent 34%, transparent 65%, #e2e8f0 66%, transparent 67%)">
+                                    <span data-movement-in-bar class="w-2.5 rounded-t bg-emerald-500 transition-all duration-500" style="height:{{ $day['incoming'] ? max(4, ($day['incoming'] / $maxMovementRows) * 100) : 0 }}%" aria-label="Masuk {{ $day['incoming'] }} baris"></span>
+                                    <span data-movement-out-bar class="w-2.5 rounded-t bg-[#DC143C] transition-all duration-500" style="height:{{ $day['outgoing'] ? max(4, ($day['outgoing'] / $maxMovementRows) * 100) : 0 }}%" aria-label="Keluar {{ $day['outgoing'] }} baris"></span>
+                                </div>
+                                <span class="mt-1 block truncate text-[9px] text-slate-500">{{ $day['label'] }}</span>
+                            </div>
+                        @endforeach
+                    </div>
+                    <p data-movement-empty class="{{ collect($stockMovementTrend)->sum('incoming') + collect($stockMovementTrend)->sum('outgoing') > 0 ? 'hidden' : '' }} mt-3 text-center text-[11px] text-slate-500">Belum ada mutasi selama 7 hari terakhir.</p>
+                    <p class="mt-3 border-t border-slate-100 pt-3 text-[10px] text-slate-400">Data berdasarkan baris transaksi stok, diperbarui otomatis setiap 30 detik.</p>
                 </div>
 
                 <div class="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs">
                     <div class="flex items-center justify-between pb-2">
                         <h2 class="text-sm font-semibold font-poppins text-slate-900">Prioritas Kedaluwarsa</h2>
-                        <span class="text-xs font-semibold text-[#DC143C]">Hari ini</span>
+                        <span data-expiring-batch-count class="text-xs font-semibold text-[#DC143C]">{{ $expiringBatchCount }} batch</span>
                     </div>
-                    <p class="text-[11px] text-slate-400 mb-3">Barang yang masa simpannya perlu diperhatikan.</p>
-                    @if($inventorySummaryAvailable)
-                        <div class="divide-y divide-slate-100">
-                            <div class="py-2.5 flex items-center justify-between gap-3"><div class="flex items-center gap-2 min-w-0"><img src="https://images.unsplash.com/photo-1540420773420-3366772f4999?w=80&auto=format&fit=crop&q=80" alt="Selada" class="w-8 h-8 rounded-lg object-cover"><div class="truncate"><div class="font-semibold text-xs text-slate-900">Selada Romaine</div><div class="text-[10px] text-[#DC143C] font-semibold">24 days left</div></div></div><div class="text-right shrink-0"><div class="text-xs font-semibold text-slate-900 font-plex-mono">13 kg</div><span class="text-[10px] font-semibold text-[#DC143C]">Use today</span></div></div>
-                        </div>
-                        <a href="{{ route('inventory.stock.index') }}" class="block text-center text-xs font-semibold text-slate-600 hover:text-[#DC143C] pt-3 mt-1 border-t border-slate-100">Lihat daftar lengkap &rsaquo;</a>
-                    @else
-                        <div class="py-6 text-center text-xs text-slate-400">
-                            <span class="material-symbols-outlined text-[28px] text-slate-300 mb-1">schedule</span>
-                            <p class="font-medium text-slate-600">Data batch dan tanggal kedaluwarsa belum tersedia.</p>
-                            <a href="{{ route('inventory.stock.index') }}" class="mt-2 inline-block font-semibold text-[#DC143C] hover:underline">Buka daftar persediaan &rarr;</a>
-                        </div>
-                    @endif
+                    <div class="mt-3 rounded-xl bg-amber-50 p-3 text-xs text-amber-900">
+                        <p class="font-semibold">Batch kedaluwarsa atau jatuh tempo dalam 30 hari</p>
+                        <p class="mt-1">{{ $expiringBatchCount > 0 ? 'Periksa batch sebelum digunakan atau didistribusikan.' : 'Tidak ada batch berisiko dengan saldo tersisa.' }}</p>
+                    </div>
+                    <a href="{{ route('inventory.stock.index') }}" class="block text-center text-xs font-semibold text-slate-600 hover:text-[#DC143C] pt-3 mt-1 border-t border-slate-100">Buka data stok &rsaquo;</a>
                 </div>
             @endif
         </aside>
@@ -740,10 +734,21 @@
             try {
                 const response = await fetch(endpoint, { headers: { 'Accept': 'application/json' } });
                 if (!response.ok) return;
-                const { items, low_stock_alert_count: lowStockAlertCount } = await response.json();
+                const { items, low_stock_alert_count: lowStockAlertCount, expiring_batch_count: expiringBatchCount, stock_movement_trend: movementTrend } = await response.json();
                 if (lowStockAlertCount !== null && lowStockAlertCount !== undefined) {
                     document.querySelectorAll('[data-low-stock-alert-count]').forEach(node => {
                         node.textContent = `${lowStockAlertCount} alert`;
+                    });
+                    document.querySelectorAll('[data-low-stock-action]').forEach(node => {
+                        node.textContent = Number(lowStockAlertCount) > 0
+                            ? (node.dataset.canView === 'true' ? 'Lihat Peringatan' : 'Lihat Data Stok')
+                            : 'Tidak ada alert aktif';
+                    });
+                }
+                if (Array.isArray(movementTrend)) renderStockMovementChart(movementTrend);
+                if (expiringBatchCount !== undefined) {
+                    document.querySelectorAll('[data-expiring-batch-count]').forEach(node => {
+                        node.textContent = `${expiringBatchCount} batch`;
                     });
                 }
                 const formatQuantity = quantity => Number(quantity).toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 3 });
@@ -751,24 +756,61 @@
                     const balance = document.querySelector(`[data-dashboard-stock="${item.id}"]`);
                     if (balance) balance.textContent = formatQuantity(item.quantity);
                     const row = document.querySelector(`#desktop-table-body [data-dashboard-stock="${item.id}"]`)?.closest('.d-row');
-                    if (row) row.dataset.stock = item.quantity;
+                    if (row) {
+                        row.dataset.stock = item.quantity;
+                        const available = Number(item.quantity) > 0;
+                        const badge = row.querySelector('[data-stock-status]');
+                        const dot = row.querySelector('[data-stock-status-dot]');
+                        const label = row.querySelector('[data-stock-status-label]');
+                        if (badge) badge.className = `inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${available ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60' : 'bg-rose-50 text-rose-700 border border-rose-200/60'}`;
+                        if (dot) dot.className = `h-1.5 w-1.5 rounded-full ${available ? 'bg-emerald-500' : 'bg-rose-500'}`;
+                        if (label) label.textContent = available ? 'Tersedia' : 'Habis';
+                    }
                 });
-                const render = (item, compact) => `<div class="flex items-center gap-3 rounded-xl ${compact ? 'bg-surface-container-lowest p-2.5' : 'border border-gray-100 p-3'}"><img src="${item.image || @js(asset('images/product-placeholder.svg'))}" class="h-11 w-11 rounded-lg object-cover" alt=""><div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold">${escapeHtml(item.name)}</p><p class="text-xs ${compact ? 'text-secondary' : 'text-gray-500'}">${escapeHtml(item.sku)} · ${escapeHtml(item.category)}</p></div><b class="whitespace-nowrap text-sm">${formatQuantity(item.quantity)} ${escapeHtml(item.unit)}</b></div>`;
+                applyStockFilters(false);
+                const render = (item, compact) => `<div class="flex items-center gap-3 rounded-xl ${compact ? 'bg-surface-container-lowest p-2.5' : 'border border-gray-100 p-3'}"><img src="${item.image || @js(asset('images/product-placeholder.svg'))}" class="h-11 w-11 rounded-lg object-cover" alt="" loading="lazy" decoding="async"><div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold">${escapeHtml(item.name)}</p><p class="text-xs ${compact ? 'text-secondary' : 'text-gray-500'}">${escapeHtml(item.sku)} · ${escapeHtml(item.category)}</p></div><b class="whitespace-nowrap text-sm">${formatQuantity(item.quantity)} ${escapeHtml(item.unit)}</b></div>`;
                 const empty = '<p class="py-4 text-center text-sm text-secondary">Belum ada saldo. Catat transaksi stok masuk untuk memulai.</p>';
-                if (mobile) mobile.innerHTML = items.length ? items.map(item => render(item, true)).join('') : empty;
+                if (mobile) mobile.innerHTML = items.length ? items.slice(0, 5).map(item => render(item, true)).join('') : empty;
                 if (desktop) desktop.innerHTML = items.length ? items.map(item => render(item, false)).join('') : '<p class="py-4 text-sm text-gray-500">Belum ada saldo. Catat transaksi stok masuk untuk memulai.</p>';
             } catch (_) { /* keep last balance visible */ }
         }
         function escapeHtml(value) { return String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char])); }
-        window.setInterval(refreshStock, 10000);
+        window.setInterval(() => { if (!document.hidden) refreshStock(); }, 30000);
     })();
+
+    function renderStockMovementChart(points) {
+        const chart = document.getElementById('stock-movement-chart');
+        if (!chart) return;
+        const incomingTotal = points.reduce((total, point) => total + Number(point.incoming || 0), 0);
+        const outgoingTotal = points.reduce((total, point) => total + Number(point.outgoing || 0), 0);
+        const maxRows = Math.max(1, ...points.flatMap(point => [Number(point.incoming || 0), Number(point.outgoing || 0)]));
+        const height = value => value > 0 ? Math.max(4, (value / maxRows) * 100) : 0;
+        chart.innerHTML = points.map(point => {
+            const incoming = Number(point.incoming || 0);
+            const outgoing = Number(point.outgoing || 0);
+            const label = escapeMovementLabel(point.label || '');
+            return `<div class="min-w-0 text-center" title="${label} · masuk ${incoming} baris · keluar ${outgoing} baris"><div class="flex h-28 items-end justify-center gap-1 rounded-lg bg-slate-50 px-1 pb-1" style="background-image:linear-gradient(to bottom,transparent 32%,#e2e8f0 33%,transparent 34%,transparent 65%,#e2e8f0 66%,transparent 67%)"><span class="w-2.5 rounded-t bg-emerald-500 transition-all duration-500" style="height:${height(incoming)}%" aria-label="Masuk ${incoming} baris"></span><span class="w-2.5 rounded-t bg-[#DC143C] transition-all duration-500" style="height:${height(outgoing)}%" aria-label="Keluar ${outgoing} baris"></span></div><span class="mt-1 block truncate text-[9px] text-slate-500">${label}</span></div>`;
+        }).join('');
+        const inTotal = document.querySelector('[data-movement-in-total]');
+        const outTotal = document.querySelector('[data-movement-out-total]');
+        const emptyMessage = document.querySelector('[data-movement-empty]');
+        if (inTotal) inTotal.textContent = incomingTotal;
+        if (outTotal) outTotal.textContent = outgoingTotal;
+        if (emptyMessage) emptyMessage.classList.toggle('hidden', incomingTotal + outgoingTotal > 0);
+    }
+
+    function escapeMovementLabel(value) {
+        return String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
+    }
 
     // Active filtering states
     let desktopCategory = 'all';
     let desktopSearch = '';
     let desktopStockStatus = 'all';
+    const stockPageSize = 5;
+    let stockCurrentPage = 1;
 
-    function applyStockFilters() {
+    function applyStockFilters(resetPage = true) {
         const categorySelect = document.getElementById('stock-filter-category');
         const statusSelect = document.getElementById('stock-filter-status');
         const searchInput = document.getElementById('desktop-table-search');
@@ -777,7 +819,6 @@
         if (statusSelect) desktopStockStatus = statusSelect.value;
         if (searchInput) desktopSearch = searchInput.value.toLowerCase().trim();
 
-        let visibleCount = 0;
         const rows = document.querySelectorAll('#desktop-table-body .d-row');
         rows.forEach(row => {
             const cat = (row.dataset.category || '').toLowerCase();
@@ -788,23 +829,56 @@
             const matchStatus = desktopStockStatus === 'all' || (desktopStockStatus === 'available' && stock > 0) || (desktopStockStatus === 'empty' && stock <= 0);
             const matchSearch = !desktopSearch || text.includes(desktopSearch);
 
-            if (matchCat && matchStatus && matchSearch) {
-                row.style.display = '';
-                visibleCount++;
-            } else {
-                row.style.display = 'none';
-            }
+            row.dataset.filterVisible = String(matchCat && matchStatus && matchSearch);
+            row.style.display = 'none';
+        });
+
+        if (resetPage) stockCurrentPage = 1;
+        renderStockPage();
+    }
+
+    function renderStockPage() {
+        const rows = [...document.querySelectorAll('#desktop-table-body .d-row')];
+        const matchingRows = rows.filter(row => row.dataset.filterVisible === 'true');
+        const totalPages = Math.max(1, Math.ceil(matchingRows.length / stockPageSize));
+        stockCurrentPage = Math.min(Math.max(stockCurrentPage, 1), totalPages);
+        const start = (stockCurrentPage - 1) * stockPageSize;
+        const end = Math.min(start + stockPageSize, matchingRows.length);
+        matchingRows.forEach((row, index) => {
+            row.style.display = index >= start && index < end ? '' : 'none';
         });
 
         const emptyRow = document.getElementById('table-empty-row');
-        if (emptyRow) {
-            emptyRow.style.display = visibleCount === 0 && rows.length > 0 ? '' : 'none';
-        }
-
+        if (emptyRow) emptyRow.style.display = matchingRows.length === 0 && rows.length > 0 ? '' : 'none';
         const countEl = document.getElementById('table-visible-count');
-        if (countEl) {
-            countEl.textContent = visibleCount;
-        }
+        if (countEl) countEl.textContent = matchingRows.length ? `${start + 1}-${end}` : '0';
+        const filteredCountEl = document.getElementById('table-filtered-count');
+        if (filteredCountEl) filteredCountEl.textContent = matchingRows.length;
+
+        const pageSummary = document.getElementById('stock-table-page-summary');
+        if (pageSummary) pageSummary.textContent = `${matchingRows.length} produk cocok · halaman ${stockCurrentPage} dari ${totalPages}`;
+        const pagination = document.getElementById('stock-table-pagination');
+        if (pagination) pagination.classList.toggle('hidden', matchingRows.length <= stockPageSize);
+        const pageButtons = document.getElementById('stock-table-page-buttons');
+        if (!pageButtons) return;
+        pageButtons.replaceChildren();
+
+        const makePageButton = (label, page, active = false, disabled = false) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = label;
+            button.disabled = disabled;
+            button.className = `min-w-8 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors ${active ? 'border-[#DC143C] bg-rose-50 text-[#DC143C]' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'} disabled:cursor-not-allowed disabled:opacity-40`;
+            button.addEventListener('click', () => {
+                stockCurrentPage = page;
+                renderStockPage();
+            });
+            pageButtons.append(button);
+        };
+
+        makePageButton('‹', stockCurrentPage - 1, false, stockCurrentPage === 1);
+        for (let page = 1; page <= totalPages; page++) makePageButton(String(page), page, page === stockCurrentPage);
+        makePageButton('›', stockCurrentPage + 1, false, stockCurrentPage === totalPages);
     }
 
     function setDesktopCategory(cat, btn) {
@@ -867,7 +941,7 @@
     }
 
     function exportStockFile(format) {
-        const rows = [...document.querySelectorAll('#desktop-table-body .d-row')].filter(row => row.style.display !== 'none');
+        const rows = [...document.querySelectorAll('#desktop-table-body .d-row')].filter(row => row.dataset.filterVisible === 'true');
         const values = [['SKU', 'Produk', 'Kategori', 'Stok', 'Status'], ...rows.map(row => {
             const sku = row.querySelector('td:nth-child(2)')?.innerText.trim() || '';
             const name = row.querySelector('td:nth-child(3) .font-semibold')?.innerText.trim() || '';
@@ -899,4 +973,6 @@
     function openQuickActionModal(title) {
         alert(title + ' belum tersedia. Pencatatan transaksi akan aktif setelah fitur stok dibuat.');
     }
+
+    applyStockFilters(false);
 @endsection

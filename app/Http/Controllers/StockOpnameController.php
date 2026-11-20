@@ -14,6 +14,26 @@ use Illuminate\View\View;
 
 class StockOpnameController extends Controller
 {
+    private function assertCanManage($user): void
+    {
+        abort_unless(! $user->hasRole('purchasing') && $user->hasPermissionTo('opname.manage'), 403);
+    }
+
+    private function canApproveAtLocation($user, Location $location): bool
+    {
+        if ($user->hasRole('purchasing') || ! $user->hasPermissionTo('opname.approve')) return false;
+        if ($user->hasRole('super_admin') || $user->hasRole('management') || $user->hasRole('finance')) return true;
+        if ($user->hasRole('pic_warehouse')) {
+            return $location->type === Location::TYPE_WAREHOUSE
+                && in_array((int) $location->id, $user->assignedWarehouseLocationIds(), true);
+        }
+        if ($user->hasRole('pic_outlet')) {
+            return $location->type === Location::TYPE_OUTLET
+                && in_array((int) $location->id, $user->assignedOutletLocationIds(), true);
+        }
+        return false;
+    }
+
     private function assertPicLocation($user, int $locationId): void
     {
         if ($user->isLocationScopedUser()) {
@@ -24,12 +44,20 @@ class StockOpnameController extends Controller
     public function index(Request $request): View
     {
         $user = $request->user();
-        abort_unless($user->hasPermissionTo('opname.manage') || $user->hasPermissionTo('opname.approve'), 403);
+        $canManage = ! $user->hasRole('purchasing') && $user->hasPermissionTo('opname.manage');
+        $canApprove = ! $user->hasRole('purchasing') && $user->hasPermissionTo('opname.approve');
+        $canView = $user->hasPermissionTo('opname.view');
+        abort_unless($canManage || $canApprove || $canView, 403);
+        $readOnlyHistory = $user->hasRole('purchasing') || (! $canManage && ! $canApprove);
         $locationIds = $user->isLocationScopedUser() ? $user->assignedLocationIds() : [];
         if ($user->isLocationScopedUser()) abort_unless($locationIds, 403, 'Akun operasional belum memiliki lokasi aktif yang ditugaskan.');
 
         $query = StockOpname::with(['location', 'counter', 'reviewer', 'items']);
         $statsQuery = StockOpname::query();
+        if ($readOnlyHistory) {
+            $query->where('status', 'approved');
+            $statsQuery->where('status', 'approved');
+        }
         $locationId = $request->integer('location_id') ?: null;
         if ($user->isLocationScopedUser()) {
             if ($locationId) abort_unless(in_array($locationId, $locationIds, true), 403);
@@ -61,13 +89,14 @@ class StockOpnameController extends Controller
             'opnames'   => $query->latest()->paginate(15)->withQueryString(),
             'locations' => Location::where('is_active', true)->when($user->isLocationScopedUser(), fn ($query) => $query->whereIn('id', $locationIds))->orderBy('name')->get(),
             'stats'     => $stats,
+            'readOnlyHistory' => $readOnlyHistory,
         ]);
     }
 
     public function create(): View
     {
         $user = auth()->user();
-        abort_unless($user->hasPermissionTo('opname.manage'), 403);
+        $this->assertCanManage($user);
         $locationScoped = $user->isLocationScopedUser();
         $locationIds = $locationScoped ? $user->assignedLocationIds() : [];
         if ($locationScoped) abort_unless($locationIds, 403, 'Akun operasional belum memiliki lokasi aktif yang ditugaskan.');
@@ -86,6 +115,7 @@ class StockOpnameController extends Controller
     public function start(Request $request, StockOpnameService $service): RedirectResponse
     {
         $user = $request->user();
+        $this->assertCanManage($user);
         $locationIds = $user->isLocationScopedUser() ? $user->assignedLocationIds() : [];
         if ($user->isLocationScopedUser()) abort_unless($locationIds, 403, 'Akun operasional belum memiliki lokasi aktif yang ditugaskan.');
         $fixedLocationId = $user->isLocationScopedUser()
@@ -113,13 +143,22 @@ class StockOpnameController extends Controller
     public function show(StockOpname $stockOpname): View
     {
         $user = auth()->user();
-        abort_unless($user->hasPermissionTo('opname.manage') || $user->hasPermissionTo('opname.approve'), 403);
+        $canManage = ! $user->hasRole('purchasing') && $user->hasPermissionTo('opname.manage');
+        $canApprove = $this->canApproveAtLocation($user, $stockOpname->location);
+        $canView = $user->hasPermissionTo('opname.view');
+        abort_unless($canManage || $canApprove || ($canView && $stockOpname->status === 'approved'), 403);
         $this->assertPicLocation($user, (int) $stockOpname->location_id);
-        return view('inventory.stock-opname.show', ['opname' => $stockOpname->load(['location', 'counter', 'reviewer', 'items.product.unit'])]);
+        $canReviewOpname = $canApprove && (int) $stockOpname->counted_by !== (int) $user->id;
+        return view('inventory.stock-opname.show', [
+            'opname' => $stockOpname->load(['location', 'counter', 'reviewer', 'items.product.unit']),
+            'canManageOpname' => $canManage,
+            'canReviewOpname' => $canReviewOpname,
+        ]);
     }
 
     public function submit(Request $request, StockOpname $stockOpname, StockOpnameService $service): RedirectResponse
     {
+        $this->assertCanManage($request->user());
         $this->assertPicLocation($request->user(), (int) $stockOpname->location_id);
         $items = $stockOpname->items()->get(['id']);
         $rules = ['items' => ['required', 'array', 'size:'.$items->count()]];
@@ -133,11 +172,12 @@ class StockOpnameController extends Controller
             '*.min' => 'Jumlah fisik tidak boleh kurang dari nol.',
         ])->validate();
         $service->submit($stockOpname, $data['items']);
-        return redirect()->route('inventory.stock-opname.show', $stockOpname)->with('status', 'Hasil hitung terkirim ke Purchasing untuk ditinjau.');
+        return redirect()->route('inventory.stock-opname.show', $stockOpname)->with('status', 'Hasil hitung dikirim untuk persetujuan.');
     }
 
     public function approve(Request $request, StockOpname $stockOpname, StockOpnameService $service): RedirectResponse
     {
+        abort_unless($this->canApproveAtLocation($request->user(), $stockOpname->location), 403);
         $this->assertPicLocation($request->user(), (int) $stockOpname->location_id);
         $data = $request->validate(['review_note' => ['nullable', 'string', 'max:5000']]);
         $service->approve($stockOpname, $data['review_note'] ?? null);
@@ -146,6 +186,7 @@ class StockOpnameController extends Controller
 
     public function cancel(Request $request, StockOpname $stockOpname, StockOpnameService $service): RedirectResponse
     {
+        $this->assertCanManage($request->user());
         $this->assertPicLocation($request->user(), (int) $stockOpname->location_id);
         $data = $request->validate(['reason' => ['required', 'string', 'min:5', 'max:4500']]);
         $service->cancel($stockOpname, $data['reason']);
@@ -154,6 +195,7 @@ class StockOpnameController extends Controller
 
     public function reject(Request $request, StockOpname $stockOpname, StockOpnameService $service): RedirectResponse
     {
+        abort_unless($this->canApproveAtLocation($request->user(), $stockOpname->location), 403);
         $this->assertPicLocation($request->user(), (int) $stockOpname->location_id);
         $data = $request->validate(['review_note' => ['required', 'string', 'max:5000']]);
         $service->reject($stockOpname, $data['review_note']);

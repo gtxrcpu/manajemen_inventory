@@ -32,7 +32,7 @@ class SendPurchaseOrderArrivalWhatsAppAlert implements ShouldQueue
     public function handle(NotificationProvider $provider, PurchaseOrderArrivalAlertService $alerts): void
     {
         $log = PurchaseOrderWhatsAppLog::with('purchaseOrder')->findOrFail($this->logId);
-        if ($log->purchaseOrder->status !== 'issued') {
+        if (! in_array($log->purchaseOrder->status, ['open', 'partially_received', 'issued'], true)) {
             $log->update(['status' => 'failed', 'error_message' => 'PO sudah diterima; info kedatangan tidak lagi dikirim.']);
             return;
         }

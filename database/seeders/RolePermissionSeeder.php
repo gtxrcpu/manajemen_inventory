@@ -73,12 +73,18 @@ class RolePermissionSeeder extends Seeder
         );
 
         $opnameApprove = Permission::updateOrCreate(['name' => 'opname.approve'], ['label' => 'Review and approve stock opname']);
-        Role::whereIn('name', ['super_admin', 'purchasing'])->each(
+        Role::whereIn('name', ['super_admin', 'pic_warehouse', 'pic_outlet', 'management', 'finance'])->each(
             fn (Role $role) => $role->permissions()->syncWithoutDetaching([$opnameApprove->id]),
         );
-        Role::whereNotIn('name', ['super_admin', 'purchasing'])->each(
+        Role::whereNotIn('name', ['super_admin', 'pic_warehouse', 'pic_outlet', 'management', 'finance'])->each(
             fn (Role $role) => $role->permissions()->detach($opnameApprove->id),
         );
+
+        $opnameView = Permission::updateOrCreate(['name' => 'opname.view'], ['label' => 'View approved stock opname history']);
+        Role::whereIn('name', ['super_admin', 'staff_gudang', 'staff_outlet', 'pic_warehouse', 'pic_outlet', 'management', 'finance', 'purchasing'])
+            ->each(fn (Role $role) => $role->permissions()->syncWithoutDetaching([$opnameView->id]));
+        Role::whereNotIn('name', ['super_admin', 'staff_gudang', 'staff_outlet', 'pic_warehouse', 'pic_outlet', 'management', 'finance', 'purchasing'])
+            ->each(fn (Role $role) => $role->permissions()->detach($opnameView->id));
 
         $adjustmentManage = Permission::updateOrCreate(['name' => 'adjust.manage'], ['label' => 'Manage stock adjustments']);
         Role::where('name', 'super_admin')->firstOrFail()->permissions()->syncWithoutDetaching([$adjustmentManage->id]);
@@ -103,6 +109,10 @@ class RolePermissionSeeder extends Seeder
         $purchasingManage = Permission::updateOrCreate(['name' => 'purchasing.manage'], ['label' => 'Create purchase requests and orders']);
         Role::whereIn('name', ['super_admin', 'purchasing'])->each(fn (Role $role) => $role->permissions()->syncWithoutDetaching([$purchasingManage->id]));
         Role::whereNotIn('name', ['super_admin', 'purchasing'])->each(fn (Role $role) => $role->permissions()->detach($purchasingManage->id));
+
+        $purchaseRequestApprove = Permission::updateOrCreate(['name' => 'purchase-request.approve'], ['label' => 'Review and approve purchase requests']);
+        Role::whereIn('name', ['super_admin', 'management'])->each(fn (Role $role) => $role->permissions()->syncWithoutDetaching([$purchaseRequestApprove->id]));
+        Role::whereNotIn('name', ['super_admin', 'management'])->each(fn (Role $role) => $role->permissions()->detach($purchaseRequestApprove->id));
 
         $invoiceView = Permission::updateOrCreate(['name' => 'invoice.view'], ['label' => 'View supplier purchase invoices']);
         Role::whereIn('name', ['super_admin', 'purchasing', 'finance'])->each(fn (Role $role) => $role->permissions()->syncWithoutDetaching([$invoiceView->id]));
@@ -141,9 +151,9 @@ class RolePermissionSeeder extends Seeder
             ->each(fn (Role $role) => $role->permissions()->syncWithoutDetaching([$reportsView->id]));
 
         $lowStockView = Permission::updateOrCreate(['name' => 'low_stock.view'], ['label' => 'View low stock alerts and history']);
-        Role::whereIn('name', ['super_admin', 'staff_gudang', 'staff_outlet', 'pic_outlet'])
+        Role::whereIn('name', ['super_admin', 'staff_gudang', 'staff_outlet', 'pic_outlet', 'purchasing'])
             ->each(fn (Role $role) => $role->permissions()->syncWithoutDetaching([$lowStockView->id]));
-        Role::whereNotIn('name', ['super_admin', 'staff_gudang', 'staff_outlet', 'pic_outlet'])
+        Role::whereNotIn('name', ['super_admin', 'staff_gudang', 'staff_outlet', 'pic_outlet', 'purchasing'])
             ->each(fn (Role $role) => $role->permissions()->detach($lowStockView->id));
 
         $lowStockManage = Permission::updateOrCreate(['name' => 'low_stock.manage'], ['label' => 'Manage per-location minimum stock thresholds']);

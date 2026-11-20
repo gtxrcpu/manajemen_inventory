@@ -1,5 +1,3 @@
-require('dotenv').config();
-
 const http = require('node:http');
 const fs = require('node:fs/promises');
 const path = require('node:path');
@@ -7,13 +5,16 @@ const { timingSafeEqual } = require('node:crypto');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const QRCode = require('qrcode');
 
+// Always load this service's own configuration, even when started from the app root.
+require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
+
 const host = process.env.WHATSAPP_HOST || '127.0.0.1';
 const port = Number(process.env.WHATSAPP_PORT || 3100);
 const token = process.env.WHATSAPP_SERVICE_TOKEN || '';
 const authPath = path.resolve(__dirname, '..', process.env.WHATSAPP_AUTH_PATH || '.wwebjs_auth');
 const approved = process.env.WHATSAPP_PROVIDER_APPROVED === 'true';
 
-if (token.length < 32) throw new Error('Set WHATSAPP_SERVICE_TOKEN to a secret of at least 32 characters.');
+if (token.length < 32) throw new Error('WHATSAPP_SERVICE_TOKEN is missing or shorter than 32 characters in whatsapp-service/.env. Use the same token in Laravel .env.');
 
 let qrValue = null;
 let qrDataUrl = null;
@@ -34,6 +35,26 @@ const qrMaxAgeMs = 60_000;
 function clearQrExpiryTimer() {
   clearTimeout(qrExpiryTimer);
   qrExpiryTimer = null;
+}
+
+function scheduleLoggedOutRecovery(instance, reason) {
+  if (!approved || shuttingDown || client !== instance || logoutRecoveryActive) return;
+
+  clearQrExpiryTimer();
+  connected = false;
+  qrValue = null;
+  qrDataUrl = null;
+  qrCreatedAt = null;
+  account = null;
+  connectionState = 'generating_qr';
+  reconnecting = true;
+  logoutRecoveryActive = true;
+  clearTimeout(reconnectTimer);
+  console.warn(`WhatsApp logout detected (${reason}); preparing a fresh QR automatically.`);
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    void recoverLoggedOutClient(instance);
+  }, 5000);
 }
 
 function createClient() {
@@ -157,25 +178,69 @@ function createClient() {
     console.error('WhatsApp disconnected:', reason);
     const loggedOut = ['LOGOUT', 'UNPAIRED', 'UNPAIRED_IDLE'].includes(String(reason).toUpperCase());
     if (loggedOut) {
-      // whatsapp-web.js already handles its post_logout navigation and QR flow.
-      // Give that flow a moment; only replace the client if it fails to emit a QR.
-      logoutRecoveryActive = true;
-      connectionState = 'generating_qr';
-      reconnecting = true;
-      clearTimeout(reconnectTimer);
-      reconnectTimer = setTimeout(() => {
-        reconnectTimer = null;
-        void recoverLoggedOutClient(instance);
-      }, 5000);
+      scheduleLoggedOutRecovery(instance, String(reason));
       return;
     }
     scheduleReconnect();
   });
   instance.on('change_state', state => {
     if (client !== instance) return;
-    connectionState = String(state).toLowerCase();
-    console.log('WhatsApp connection state:', state);
+    const normalizedState = String(state).toUpperCase();
+    connectionState = normalizedState.toLowerCase();
+
+    if (['LOGOUT', 'UNPAIRED', 'UNPAIRED_IDLE'].includes(normalizedState)) {
+      scheduleLoggedOutRecovery(instance, normalizedState);
+      console.log('WhatsApp connection state:', normalizedState, `; ready=${connected}`);
+      return;
+    }
+
+    if (normalizedState === 'CONNECTED' && instance.info?.wid?.user) {
+      connected = true;
+      account = instance.info.wid.user;
+    } else if (normalizedState !== 'CONNECTED') {
+      connected = false;
+      account = null;
+    }
+
+    console.log('WhatsApp connection state:', normalizedState, `; ready=${connected}`);
   });
+
+  let stateCheckInProgress = false;
+  const stateMonitor = setInterval(async () => {
+    if (client !== instance) {
+      clearInterval(stateMonitor);
+      return;
+    }
+    if (!approved || shuttingDown || !connected || logoutRecoveryActive || reconnectInProgress || stateCheckInProgress) return;
+
+    stateCheckInProgress = true;
+    try {
+      const currentState = String(await instance.getState() || '').toUpperCase();
+      if (client !== instance) return;
+
+      if (['LOGOUT', 'UNPAIRED', 'UNPAIRED_IDLE'].includes(currentState)) {
+        scheduleLoggedOutRecovery(instance, `state check: ${currentState}`);
+      } else if (currentState !== 'CONNECTED') {
+        connected = false;
+        account = null;
+        connectionState = currentState ? currentState.toLowerCase() : 'reconnecting';
+        console.warn('WhatsApp state check found the client offline:', currentState || 'unknown');
+      } else if (instance.info?.wid?.user) {
+        connected = true;
+        account = instance.info.wid.user;
+      }
+    } catch (error) {
+      if (/detached frame|execution context was destroyed|target closed|session closed/i.test(error.message)) {
+        connected = false;
+        account = null;
+        connectionState = 'reconnecting';
+        scheduleReconnect();
+      }
+    } finally {
+      stateCheckInProgress = false;
+    }
+  }, 10000);
+
   return instance;
 }
 

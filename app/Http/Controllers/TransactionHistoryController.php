@@ -33,6 +33,7 @@ class TransactionHistoryController extends Controller
         $stockOut = DB::table('stock_outs')->selectRaw("id, 'stock_out' as type, reference, {$stockOutDescription} as description, location_id, (SELECT name FROM locations WHERE locations.id = stock_outs.location_id) as location_name, issued_by as user_id, (SELECT name FROM users WHERE users.id = stock_outs.issued_by) as user_name, created_at, 'completed' as status")
             ->when($request->filled('product_id'), fn ($q) => $q->whereExists(fn ($items) => $items->selectRaw('1')->from('stock_out_items')->whereColumn('stock_out_items.stock_out_id', 'stock_outs.id')->where('stock_out_items.product_id', $request->integer('product_id'))));
         $opname = DB::table('stock_opnames')->selectRaw("id, 'stock_opname' as type, reference, period_type as description, location_id, (SELECT name FROM locations WHERE locations.id = stock_opnames.location_id) as location_name, counted_by as user_id, (SELECT name FROM users WHERE users.id = stock_opnames.counted_by) as user_name, created_at, status")
+            ->when($request->user()->hasRole('purchasing'), fn ($q) => $q->where('status', 'approved'))
             ->when($request->filled('product_id'), fn ($q) => $q->whereExists(fn ($items) => $items->selectRaw('1')->from('stock_opname_items')->whereColumn('stock_opname_items.stock_opname_id', 'stock_opnames.id')->where('stock_opname_items.product_id', $request->integer('product_id'))));
         $adjustment = DB::table('stock_adjustments')->selectRaw("id, 'adjustment' as type, reference, reason as description, location_id, (SELECT name FROM locations WHERE locations.id = stock_adjustments.location_id) as location_name, created_by as user_id, (SELECT name FROM users WHERE users.id = stock_adjustments.created_by) as user_name, created_at, 'completed' as status")
             ->when($request->filled('product_id'), fn ($q) => $q->where('product_id', $request->integer('product_id')));
@@ -89,7 +90,7 @@ class TransactionHistoryController extends Controller
             : $query->when($locationId, fn ($scoped) => $scoped->where('location_id', $locationId));
         $stockInCount = $scopeLocation(DB::table('stock_ins'))->count();
         $stockOutCount = $scopeLocation(DB::table('stock_outs'))->count();
-        $opnameCount = $scopeLocation(DB::table('stock_opnames'))->count();
+        $opnameCount = $scopeLocation(DB::table('stock_opnames'))->when($user->hasRole('purchasing'), fn ($query) => $query->where('status', 'approved'))->count();
         $adjustmentCount = $scopeLocation(DB::table('stock_adjustments'))->count();
         $disposalCount = $scopeLocation(DB::table('stock_disposals'))->count();
         $auditCount = $canManageUsers && ! $locationId ? DB::table('administration_audit_logs')->count() : 0;
@@ -128,6 +129,7 @@ class TransactionHistoryController extends Controller
         };
         abort_if(! $entry, 404);
         $user = auth()->user();
+        abort_if($type === 'stock_opname' && $user->hasRole('purchasing') && $entry->status !== 'approved', 403);
         if ($user->isLocationScopedUser()) {
             abort_unless(isset($entry->location_id) && in_array((int) $entry->location_id, $user->assignedLocationIds(), true), 403);
         }

@@ -4,20 +4,23 @@
     $isWarehouseStaff = auth()->user()->hasRole('staff_gudang');
     $pageTitle = $isWarehouseStaff ? 'Validasi Penerimaan Gudang' : 'Detail Purchase Order';
     $hasReceipts = $order->stockIn->isNotEmpty();
-    $orderStatusLabel = $order->status === 'closed_with_variance'
+    $isPublished = $order->status !== 'draft';
+    $orderStatusLabel = $order->status === 'draft' ? 'Draft'
+        : (in_array($order->status, ['open', 'partially_received'], true) ? ($hasReceipts ? 'Penerimaan sebagian' : 'Open · Menunggu barang')
+        : ($order->status === 'completed' ? 'Selesai diterima' : ($order->status === 'cancelled' ? 'Dibatalkan' : ($order->status === 'closed_with_variance'
         ? 'Ditutup dengan selisih'
-        : ($order->status === 'received' ? 'Diterima lengkap' : ($hasReceipts ? 'Penerimaan sebagian' : 'Menunggu barang'));
-    $orderStatusClass = $order->status === 'received'
+        : ($order->status === 'received' ? 'Diterima lengkap' : ($hasReceipts ? 'Penerimaan sebagian' : 'Menunggu barang'))))));
+    $orderStatusClass = in_array($order->status, ['completed', 'received'], true)
         ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
         : ($order->status === 'closed_with_variance'
             ? 'border-violet-200 bg-violet-50 text-violet-800'
             : ($hasReceipts ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-slate-200 bg-slate-50 text-slate-700'));
     $hasReceiptVariance = $order->stockIn->flatMap(fn ($receipt) => $receipt->items)->contains(fn ($line) => (float) ($line->delivered_quantity ?? $line->quantity) > (float) $line->quantity || filled($line->variance_note));
     $canManageSupplierFollowUp = auth()->user()->hasPermissionTo('purchasing.manage');
-    $remainingPoQuantity = $order->items->sum(fn ($item) => max(0, (float) $item->quantity - (float) ($receivedQuantities[$item->id] ?? 0)));
-    $canReceiveOrder = $order->status === 'issued' && auth()->user()->hasPermissionTo('stock.manage');
-    $canCreateOrderInvoice = in_array($order->status, ['received', 'closed_with_variance'], true) && ! $invoice && auth()->user()->hasPermissionTo('invoice.manage');
-    $arrivalStageComplete = $hasReceipts || in_array($order->status, ['received', 'closed_with_variance'], true);
+    $remainingPoQuantity = $order->items->sum(fn ($item) => max(0, (float) ($item->qty_ordered ?: $item->quantity) - (float) ($receivedQuantities[$item->id] ?? 0)));
+    $canReceiveOrder = in_array($order->status, ['open', 'partially_received', 'issued'], true) && auth()->user()->hasPermissionTo('stock.manage');
+    $canCreateOrderInvoice = in_array($order->status, ['completed', 'received', 'closed_with_variance'], true) && ! $invoice && auth()->user()->hasPermissionTo('invoice.manage');
+    $arrivalStageComplete = $hasReceipts || in_array($order->status, ['completed', 'received', 'closed_with_variance'], true);
 @endphp
 
 @section('mobile-content')
@@ -47,19 +50,27 @@
             <div><dt class="text-slate-400">Estimasi tiba</dt><dd class="mt-1 font-semibold text-slate-800">{{ $order->expected_delivery?->format('d M Y') ?? 'Belum ditentukan' }}</dd></div>
             <div><dt class="text-slate-400">Dibuat oleh</dt><dd class="mt-1 font-semibold text-slate-800">{{ $order->creator->name }}</dd></div>
         </dl>
-        @unless($isWarehouseStaff)<p class="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">Permintaan asal <a href="{{ route('purchasing.requests.show', $order->request) }}" class="ml-1 font-semibold text-[#DC143C]">{{ $order->request->reference }} <span aria-hidden="true">↗</span></a></p>@endunless
+        @if(!$isWarehouseStaff && $order->request)<p class="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">Permintaan asal <a href="{{ route('purchasing.requests.show', $order->request) }}" class="ml-1 font-semibold text-[#DC143C]">{{ $order->request->reference }} <span aria-hidden="true">↗</span></a></p>@endif
     </section>
+
+    @if(auth()->user()->hasPermissionTo('purchasing.manage'))@include('purchasing._order-document-summary')@endif
+    @if(auth()->user()->hasPermissionTo('purchasing.manage') && $order->status === 'draft')
+        <div class="flex flex-col gap-2 sm:flex-row"><a href="{{ route('purchasing.orders.edit', $order) }}" class="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700">Ubah draft</a><a href="{{ route('purchasing.orders.print', $order) }}" target="_blank" class="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700">Lihat dokumen cetak</a><form method="POST" action="{{ route('purchasing.orders.issue', $order) }}" class="flex-1">@csrf<button class="min-h-11 w-full rounded-xl bg-[#DC143C] px-4 py-3 text-sm font-semibold text-white">Terbitkan PO (Open)</button></form></div>
+    @elseif(auth()->user()->hasPermissionTo('purchasing.manage') && $order->status === 'open' && !$hasReceipts)
+        <form method="POST" action="{{ route('purchasing.orders.cancel', $order) }}" data-confirm-title="Batalkan PO ini?" data-confirm-message="PO yang dibatalkan tidak dapat diterima lagi.">@csrf<button class="rounded-xl border border-rose-300 px-4 py-3 text-sm font-semibold text-rose-700">Batalkan PO</button></form>
+    @endif
+    @if(auth()->user()->hasPermissionTo('purchasing.manage') && $order->status !== 'draft')<a href="{{ route('purchasing.orders.print', $order) }}" target="_blank" class="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700">Cetak / Unduh PDF PO</a>@endif
 
     <section class="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm" aria-label="Tahapan Purchase Order">
         <div class="grid grid-cols-3 gap-2 text-center">
-            <div><span class="mx-auto flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><span class="material-symbols-outlined text-[17px]">check</span></span><p class="mt-1.5 text-[10px] font-semibold text-slate-700">PO diterbitkan</p></div>
+            <div><span class="mx-auto flex h-7 w-7 items-center justify-center rounded-full {{ $isPublished ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400' }}"><span class="material-symbols-outlined text-[17px]">{{ $isPublished ? 'check' : 'edit_note' }}</span></span><p class="mt-1.5 text-[10px] font-semibold {{ $isPublished ? 'text-slate-700' : 'text-slate-400' }}">{{ $isPublished ? 'PO diterbitkan' : 'Draft PO' }}</p></div>
             <div><span class="mx-auto flex h-7 w-7 items-center justify-center rounded-full {{ $arrivalStageComplete ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400' }}"><span class="material-symbols-outlined text-[17px]">{{ $arrivalStageComplete ? 'check' : 'local_shipping' }}</span></span><p class="mt-1.5 text-[10px] font-semibold {{ $arrivalStageComplete ? 'text-slate-700' : 'text-slate-400' }}">Penerimaan</p></div>
             <div><span class="mx-auto flex h-7 w-7 items-center justify-center rounded-full {{ $invoice ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400' }}"><span class="material-symbols-outlined text-[17px]">{{ $invoice ? 'check' : 'receipt_long' }}</span></span><p class="mt-1.5 text-[10px] font-semibold {{ $invoice ? 'text-slate-700' : 'text-slate-400' }}">Faktur</p></div>
         </div>
         <div class="mt-3 h-1 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-emerald-500 transition-all duration-500" style="width: {{ $invoice ? '100%' : ($arrivalStageComplete ? '66%' : '33%') }}"></div></div>
     </section>
 
-    @if ($order->status === 'issued')
+    @if (in_array($order->status, ['open', 'partially_received', 'issued'], true))
         <section class="rounded-2xl border {{ $canReceiveOrder ? 'border-rose-200 bg-rose-50/80' : 'border-amber-200 bg-amber-50/80' }} p-4 shadow-sm" aria-label="Langkah berikutnya">
             <p class="text-[10px] font-bold uppercase tracking-[0.16em] {{ $canReceiveOrder ? 'text-[#DC143C]' : 'text-amber-800' }}">Tindakan berikutnya</p>
             <h2 class="mt-1 font-semibold">{{ $canReceiveOrder ? 'Periksa dan catat barang yang datang' : ($hasReceipts ? 'Tindak lanjuti sisa / selisih dengan supplier' : 'Menunggu penerimaan oleh Gudang') }}</h2>
@@ -77,14 +88,14 @@
         </section>
     @endif
 
-    @if(!$isWarehouseStaff && $hasReceipts && ($remainingPoQuantity > 0 || $hasReceiptVariance) && $canManageSupplierFollowUp && in_array($order->status, ['issued', 'received'], true))
+    @if(!$isWarehouseStaff && $hasReceipts && ($remainingPoQuantity > 0 || $hasReceiptVariance) && $canManageSupplierFollowUp && in_array($order->status, ['open', 'partially_received', 'issued', 'completed', 'received'], true))
         <section class="rounded-2xl border border-amber-200 bg-amber-50 p-4" aria-label="Tindak lanjut supplier">
             <h2 class="font-semibold text-amber-950">Laporan Gudang dan tindak lanjut Purchasing</h2>
             <p class="mt-1 text-sm text-amber-900">Barang rusak/tidak layak tetap tercatat di bukti penerimaan, tetapi tidak menambah stok. Sisa per item:</p>
             <?php if ($remainingPoQuantity > 0): ?>
                 <ul class="mt-1 list-inside list-disc text-sm text-amber-950">
                     <?php foreach ($order->items as $item): ?>
-                        <?php $itemRemaining = max(0, (float) $item->quantity - (float) ($receivedQuantities[$item->id] ?? 0)); ?>
+                        <?php $itemRemaining = max(0, (float) ($item->qty_ordered ?: $item->quantity) - (float) ($receivedQuantities[$item->id] ?? 0)); ?>
                         <?php if ($itemRemaining > 0): ?><li><?= e($item->product->name) ?>: <?= e(\App\Support\QuantityFormatter::format($itemRemaining)) ?> <?= e($item->product->unit->symbol ?? '') ?></li><?php endif; ?>
                     <?php endforeach; ?>
                 </ul>
@@ -111,7 +122,7 @@
             @if($isWarehouseStaff)<a href="{{ route('purchase-invoices.document', $invoice) }}" class="mt-3 inline-flex rounded-lg border border-outline px-3 py-2 text-xs font-semibold text-primary">Lihat dokumen faktur</a>@endif
         @else
             <p class="mt-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Faktur belum ditautkan. Barang tetap dapat diterima dan dicatat ke saldo gudang; minta Purchasing menautkan invoice setelah dokumen tersedia agar valuasi dapat diperbarui.</p>
-            @if(!$isWarehouseStaff && in_array($order->status, ['received', 'closed_with_variance'], true) && auth()->user()->hasPermissionTo('invoice.manage'))
+            @if(!$isWarehouseStaff && in_array($order->status, ['completed', 'received', 'closed_with_variance'], true) && auth()->user()->hasPermissionTo('invoice.manage'))
                 <a href="{{ route('purchase-invoices.create', ['purchase_order_id' => $order->id]) }}" class="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-[#DC143C] px-4 py-3 text-sm font-semibold text-white">Buat faktur dari PO ini</a>
             @endif
         @endif
@@ -122,7 +133,7 @@
         @foreach ($order->items as $item)
             @php
                 $received = (float) ($receivedQuantities[$item->id] ?? 0);
-                $remaining = max(0, (float) $item->quantity - $received);
+                $remaining = max(0, (float) ($item->qty_ordered ?: $item->quantity) - $received);
                 $unitSymbol = $item->product->unit->symbol ?? 'unit';
             @endphp
             <article class="rounded-xl border border-slate-200 bg-slate-50/50 p-3 transition hover:border-slate-300">
@@ -141,7 +152,7 @@
         @endforeach
     </section>
 
-    @if ($order->status === 'issued' && auth()->user()->hasPermissionTo('stock.manage'))
+    @if (in_array($order->status, ['open', 'partially_received', 'issued'], true) && auth()->user()->hasPermissionTo('stock.manage'))
         <form id="receipt-form-mobile" method="POST" enctype="multipart/form-data" action="{{ route('purchasing.orders.receive', $order) }}" class="space-y-4 rounded-2xl border border-rose-200 bg-white p-4 shadow-sm scroll-mt-6" data-confirm-title="Simpan hasil pemeriksaan?" data-confirm-message="Jumlah layak diterima akan langsung menambah stok gudang. Periksa jumlah, foto bukti, dan catatan selisih sebelum menyimpan." data-confirm-button="Ya, catat penerimaan">
             @csrf
             <div class="flex items-center gap-3 border-b border-slate-100 pb-3"><span class="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-[#DC143C]"><span class="material-symbols-outlined">inventory</span></span><div><p class="text-[9px] font-bold uppercase tracking-[0.14em] text-[#DC143C]">Penerimaan gudang</p><h2 class="text-sm font-semibold text-slate-900">Catat kedatangan</h2></div></div>
@@ -156,7 +167,7 @@
             @foreach ($order->items as $item)
                 @php
                     $received = (float) ($receivedQuantities[$item->id] ?? 0);
-                    $remaining = max(0, (float) $item->quantity - $received);
+                    $remaining = max(0, (float) ($item->qty_ordered ?: $item->quantity) - $received);
                     $unitSymbol = $item->product->unit->symbol ?? 'unit';
                 @endphp
                 <div class="rounded-xl border border-outline bg-white p-4 space-y-3">
@@ -201,7 +212,7 @@
         </form>
     @endif
 
-    @if ($order->status === 'issued' && auth()->user()->hasPermissionTo('stock.manage') && ! $invoice)
+    @if (in_array($order->status, ['open', 'partially_received', 'issued'], true) && auth()->user()->hasPermissionTo('stock.manage') && ! $invoice)
         <p class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Penerimaan tetap dapat dicatat sebelum dokumen invoice tersedia. Hubungkan invoice ke receipt setelah Purchasing menerima dokumennya.</p>
     @endif
 
@@ -263,8 +274,16 @@
             <div><dt class="text-xs text-slate-400">Jumlah jenis barang</dt><dd class="mt-1.5 font-semibold text-slate-800">{{ $order->items->count() }} item</dd></div>
             <div><dt class="text-xs text-slate-400">Penerimaan tercatat</dt><dd class="mt-1.5 font-semibold text-slate-800">{{ $order->stockIn->count() }} kali</dd></div>
         </dl>
-        @unless($isWarehouseStaff)<p class="mt-5 border-t border-slate-100 pt-4 text-sm text-slate-500">Permintaan asal <a href="{{ route('purchasing.requests.show', $order->request) }}" class="ml-1 font-semibold text-[#DC143C]">{{ $order->request->reference }} <span aria-hidden="true">↗</span></a></p>@endunless
+        @if(!$isWarehouseStaff && $order->request)<p class="mt-5 border-t border-slate-100 pt-4 text-sm text-slate-500">Permintaan asal <a href="{{ route('purchasing.requests.show', $order->request) }}" class="ml-1 font-semibold text-[#DC143C]">{{ $order->request->reference }} <span aria-hidden="true">↗</span></a></p>@endif
     </div>
+
+    @if(auth()->user()->hasPermissionTo('purchasing.manage'))@include('purchasing._order-document-summary')@endif
+    @if(auth()->user()->hasPermissionTo('purchasing.manage') && $order->status === 'draft')
+        <div class="flex flex-wrap gap-3"><a href="{{ route('purchasing.orders.edit', $order) }}" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700">Ubah draft</a><a href="{{ route('purchasing.orders.print', $order) }}" target="_blank" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700">Lihat dokumen cetak</a><form method="POST" action="{{ route('purchasing.orders.issue', $order) }}" data-confirm-title="Terbitkan PO?" data-confirm-message="PO akan berubah ke status Open dan dapat dikirim ke supplier.">@csrf<button class="min-h-11 rounded-xl bg-[#DC143C] px-5 py-3 text-sm font-semibold text-white">Terbitkan PO (Open)</button></form><form method="POST" action="{{ route('purchasing.orders.cancel', $order) }}" data-confirm-title="Batalkan draft PO ini?" data-confirm-message="Draft akan ditandai dibatalkan dan tidak dapat diterbitkan.">@csrf<button class="min-h-11 rounded-xl border border-rose-300 bg-white px-5 py-3 text-sm font-semibold text-rose-700">Batalkan draft</button></form></div>
+    @elseif(auth()->user()->hasPermissionTo('purchasing.manage') && $order->status === 'open' && !$hasReceipts)
+        <form method="POST" action="{{ route('purchasing.orders.cancel', $order) }}" data-confirm-title="Batalkan PO ini?" data-confirm-message="PO yang dibatalkan tidak dapat diterima lagi.">@csrf<button class="rounded-xl border border-rose-300 px-5 py-3 text-sm font-semibold text-rose-700">Batalkan PO</button></form>
+    @endif
+    @if(auth()->user()->hasPermissionTo('purchasing.manage') && $order->status !== 'draft')<a href="{{ route('purchasing.orders.print', $order) }}" target="_blank" class="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700">Cetak / Unduh PDF PO</a>@endif
 
     <section class="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" aria-label="Tahapan Purchase Order">
         <div class="flex items-center justify-between gap-3">
@@ -273,9 +292,9 @@
         </div>
         <ol class="mt-5 grid grid-cols-3">
             <li class="relative flex min-w-0 flex-col items-center text-center">
-                <span class="absolute left-1/2 right-0 top-4 h-px bg-emerald-200" aria-hidden="true"></span>
-                <span class="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 ring-4 ring-white"><span class="material-symbols-outlined text-[18px]">check</span></span>
-                <span class="mt-2 max-w-full px-1 text-xs font-semibold leading-4 text-slate-800">PO diterbitkan</span>
+                <span class="absolute left-1/2 right-0 top-4 h-px {{ $isPublished ? 'bg-emerald-200' : 'bg-slate-200' }}" aria-hidden="true"></span>
+                <span class="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full {{ $isPublished ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400' }} ring-4 ring-white"><span class="material-symbols-outlined text-[18px]">{{ $isPublished ? 'check' : 'edit_note' }}</span></span>
+                <span class="mt-2 max-w-full px-1 text-xs font-semibold leading-4 {{ $isPublished ? 'text-slate-800' : 'text-slate-400' }}">{{ $isPublished ? 'PO diterbitkan' : 'Draft PO' }}</span>
             </li>
             <li class="relative flex min-w-0 flex-col items-center text-center">
                 <span class="absolute left-1/2 right-0 top-4 h-px {{ $arrivalStageComplete ? 'bg-emerald-200' : 'bg-slate-200' }}" aria-hidden="true"></span>
@@ -289,7 +308,7 @@
         </ol>
     </section>
 
-    @if ($order->status === 'issued')
+    @if (in_array($order->status, ['open', 'partially_received', 'issued'], true))
         <section class="rounded-2xl border {{ $canReceiveOrder ? 'border-rose-200 bg-rose-50/80' : 'border-amber-200 bg-amber-50/80' }} p-5 shadow-sm" aria-label="Langkah berikutnya">
             <p class="text-[10px] font-bold uppercase tracking-[0.16em] {{ $canReceiveOrder ? 'text-[#DC143C]' : 'text-amber-800' }}">Tindakan berikutnya</p>
             <div class="mt-1 flex flex-wrap items-center justify-between gap-4">
@@ -312,14 +331,14 @@
         </section>
     @endif
 
-    @if(!$isWarehouseStaff && $hasReceipts && ($remainingPoQuantity > 0 || $hasReceiptVariance) && $canManageSupplierFollowUp && in_array($order->status, ['issued', 'received'], true))
+    @if(!$isWarehouseStaff && $hasReceipts && ($remainingPoQuantity > 0 || $hasReceiptVariance) && $canManageSupplierFollowUp && in_array($order->status, ['open', 'partially_received', 'issued', 'completed', 'received'], true))
         <section class="rounded-2xl border border-amber-200 bg-amber-50 p-5" aria-label="Tindak lanjut supplier">
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div><h2 class="font-semibold text-amber-950">Laporan Gudang dan tindak lanjut Purchasing</h2><p class="mt-1 text-sm text-amber-900">Barang rusak/tidak layak tidak menambah saldo. Sisa per item:</p>
                     <?php if ($remainingPoQuantity > 0): ?>
                         <ul class="mt-1 list-inside list-disc text-sm text-amber-950">
                             <?php foreach ($order->items as $item): ?>
-                                <?php $itemRemaining = max(0, (float) $item->quantity - (float) ($receivedQuantities[$item->id] ?? 0)); ?>
+                                <?php $itemRemaining = max(0, (float) ($item->qty_ordered ?: $item->quantity) - (float) ($receivedQuantities[$item->id] ?? 0)); ?>
                                 <?php if ($itemRemaining > 0): ?><li><?= e($item->product->name) ?>: <?= e(\App\Support\QuantityFormatter::format($itemRemaining)) ?> <?= e($item->product->unit->symbol ?? '') ?></li><?php endif; ?>
                             <?php endforeach; ?>
                         </ul>
@@ -348,7 +367,7 @@
             @if($isWarehouseStaff)<a href="{{ route('purchase-invoices.document', $invoice) }}" class="mt-3 inline-flex rounded-lg border px-3 py-2 text-sm font-semibold text-[#DC143C]">Lihat dokumen faktur</a>@endif
         @else
             <p class="mt-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Faktur belum ditautkan. Barang tetap dapat diterima dan dicatat ke saldo gudang; Purchasing dapat menautkan invoice setelah dokumen tersedia.</p>
-            @if(!$isWarehouseStaff && in_array($order->status, ['received', 'closed_with_variance'], true) && auth()->user()->hasPermissionTo('invoice.manage'))
+            @if(!$isWarehouseStaff && in_array($order->status, ['completed', 'received', 'closed_with_variance'], true) && auth()->user()->hasPermissionTo('invoice.manage'))
                 <a href="{{ route('purchase-invoices.create', ['purchase_order_id' => $order->id]) }}" class="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#DC143C] px-4 py-2.5 text-sm font-semibold text-white">Buat faktur dari PO ini</a>
             @endif
         @endif
@@ -360,7 +379,7 @@
             @foreach ($order->items as $item)
                 @php
                     $received = (float) ($receivedQuantities[$item->id] ?? 0);
-                    $remaining = max(0, (float) $item->quantity - $received);
+                    $remaining = max(0, (float) ($item->qty_ordered ?: $item->quantity) - $received);
                     $unitSymbol = $item->product->unit->symbol ?? 'unit';
                 @endphp
                 <div class="grid grid-cols-[minmax(180px,1fr)_150px_150px_150px] items-center gap-4 px-5 py-4 text-sm transition hover:bg-slate-50/70">
@@ -373,7 +392,7 @@
         </div>
     </div>
 
-    @if ($order->status === 'issued' && auth()->user()->hasPermissionTo('stock.manage'))
+    @if (in_array($order->status, ['open', 'partially_received', 'issued'], true) && auth()->user()->hasPermissionTo('stock.manage'))
         <form id="receipt-form-desktop" method="POST" enctype="multipart/form-data" action="{{ route('purchasing.orders.receive', $order) }}" class="space-y-5 rounded-3xl border border-rose-200 bg-white p-6 shadow-sm scroll-mt-6" data-confirm-title="Simpan hasil pemeriksaan?" data-confirm-message="Jumlah layak diterima akan langsung menambah stok gudang. Periksa jumlah, foto bukti, dan catatan selisih sebelum menyimpan." data-confirm-button="Ya, catat penerimaan">
             @csrf
             <div class="flex items-center gap-3 border-b border-slate-100 pb-4"><span class="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-50 text-[#DC143C]"><span class="material-symbols-outlined text-[22px]">inventory</span></span><div><p class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#DC143C]">Penerimaan gudang</p><h2 class="mt-0.5 text-base font-semibold text-slate-900">Catat kedatangan supplier</h2><p class="mt-0.5 text-xs text-slate-500">Jumlah layak akan menambah saldo; foto dan catatan menjadi bukti penerimaan.</p></div></div>
@@ -390,7 +409,7 @@
             @foreach ($order->items as $item)
                 @php
                     $received = (float) ($receivedQuantities[$item->id] ?? 0);
-                    $remaining = max(0, (float) $item->quantity - $received);
+                    $remaining = max(0, (float) ($item->qty_ordered ?: $item->quantity) - $received);
                     $unitSymbol = $item->product->unit->symbol ?? 'unit';
                 @endphp
                 <div class="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
@@ -400,7 +419,7 @@
                                 <h3 class="font-semibold text-gray-900 text-base">{{ $item->product->name }}</h3>
                                 <span class="rounded bg-gray-100 px-2 py-0.5 text-xs font-mono text-gray-600">{{ $item->product->sku }}</span>
                             </div>
-                            <p class="mt-0.5 text-xs text-gray-500">Total pesanan PO: <strong class="text-gray-700">{{ \App\Support\QuantityFormatter::format($item->quantity) }} {{ $unitSymbol }}</strong></p>
+                            <p class="mt-0.5 text-xs text-gray-500">Total pesanan PO: <strong class="text-gray-700">{{ \App\Support\QuantityFormatter::format($item->qty_ordered ?: $item->quantity) }} {{ $unitSymbol }}</strong></p>
                         </div>
                         <div class="flex flex-wrap items-center gap-2">
                             <div class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-700">
@@ -467,7 +486,7 @@
         </form>
     @endif
 
-    @if ($order->status === 'issued' && auth()->user()->hasPermissionTo('stock.manage') && ! $invoice)
+    @if (in_array($order->status, ['open', 'partially_received', 'issued'], true) && auth()->user()->hasPermissionTo('stock.manage') && ! $invoice)
         <p class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Penerimaan tetap dapat dicatat sebelum dokumen invoice tersedia. Hubungkan invoice ke receipt setelah Purchasing menerima dokumennya.</p>
     @endif
 

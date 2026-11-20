@@ -1,0 +1,12 @@
+WhatsApp Web error: ErrorUtils caught an error:
+
+window.require(...).Cmd.refreshQR is not a function
+
+Subsequent non-fatal errors won't be logged; see https://fburl.com/debugjs. [object Object]
+WhatsApp Web error: Failed to load resource: the server responded with a status of 400 ()
+WhatsApp Web error: The Content Security Policy directive 'upgrade-insecure-requests' is ignored when delivered in a report-only policy.
+WhatsApp Web error: The Content Security Policy directive 'upgrade-insecure-requests' is ignored when delivered in a report-only policy.
+WhatsApp Web network request failed: dit.whatsapp.net/deidentified_telemetry net::ERR_ABORTED
+WhatsApp Web error: The Content Security Policy directive 'upgrade-insecure-requests' is ignored when delivered in a report-only policy.
+WhatsApp Web closed a browser context during navigation/recovery: Execution context was destroyed, most likely because of a navigation.
+WhatsApp state check found the client offline: OPENING

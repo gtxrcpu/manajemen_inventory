@@ -46,7 +46,7 @@ class InventoryReportService
             'stock' => $this->stockQuery($locationId, $productId, $categoryId),
             'stock_in' => $this->stockInQuery($locationId, $productId, $categoryId, $userId, $from, $to),
             'stock_out' => $this->stockOutQuery($locationId, $productId, $categoryId, $userId, $from, $to),
-            'opname' => $this->opnameQuery($locationId, $productId, $categoryId, $userId, $from, $to),
+            'opname' => $this->opnameQuery($locationId, $productId, $categoryId, $userId, $from, $to, $user->hasRole('purchasing')),
             'adjustment' => $this->adjustmentQuery($locationId, $productId, $categoryId, $userId, $from, $to),
             'movements' => $this->movementQuery($locationId, $productId, $categoryId, $userId, $from, $to, $filters['transaction_type'] ?? null),
             'expiry' => $this->expiryQuery($locationId, $productId, $categoryId),
@@ -104,13 +104,14 @@ class InventoryReportService
             ->orderByDesc('t.issued_at')->orderByDesc('t.id');
     }
 
-    private function opnameQuery(?int $locationId, ?int $productId, ?int $categoryId, ?int $userId, ?string $from, ?string $to): Builder
+    private function opnameQuery(?int $locationId, ?int $productId, ?int $categoryId, ?int $userId, ?string $from, ?string $to, bool $approvedOnly = false): Builder
     {
         return DB::table('stock_opnames as t')->join('stock_opname_items as i', 'i.stock_opname_id', '=', 't.id')
             ->join('products as p', 'p.id', '=', 'i.product_id')->join('categories as c', 'c.id', '=', 'p.category_id')->join('units as u', 'u.id', '=', 'p.unit_id')
             ->join('locations as l', 'l.id', '=', 't.location_id')->leftJoin('users as usr', 'usr.id', '=', 't.counted_by')
             ->when($locationId, fn ($q) => $q->where('t.location_id', $locationId))->when($productId, fn ($q) => $q->where('p.id', $productId))
             ->when($categoryId, fn ($q) => $q->where('p.category_id', $categoryId))->when($userId, fn ($q) => $q->where('t.counted_by', $userId))
+            ->when($approvedOnly, fn ($q) => $q->where('t.status', 'approved'))
             ->when($from, fn ($q) => $q->whereDate('t.created_at', '>=', $from))->when($to, fn ($q) => $q->whereDate('t.created_at', '<=', $to))
             ->selectRaw('t.created_at as date, t.reference, t.status, p.name as product, p.sku, c.name as category, l.name as location, i.system_quantity, i.physical_quantity, i.variance, u.symbol as unit, usr.name as user')
             ->orderByDesc('t.created_at')->orderByDesc('t.id');
@@ -177,7 +178,7 @@ class InventoryReportService
     private function purchasingQuery(?int $locationId, ?int $productId, ?int $categoryId, ?int $userId, ?string $from, ?string $to, ?string $status): Builder
     {
         return DB::table('purchase_orders as po')->join('purchase_order_items as i', 'i.purchase_order_id', '=', 'po.id')
-            ->join('purchase_requests as pr', 'pr.id', '=', 'po.purchase_request_id')->join('products as p', 'p.id', '=', 'i.product_id')
+            ->leftJoin('purchase_requests as pr', 'pr.id', '=', 'po.purchase_request_id')->join('products as p', 'p.id', '=', 'i.product_id')
             ->join('categories as c', 'c.id', '=', 'p.category_id')->join('units as u', 'u.id', '=', 'p.unit_id')->join('locations as l', 'l.id', '=', 'po.location_id')
             ->join('suppliers as s', 's.id', '=', 'po.supplier_id')->leftJoin('users as usr', 'usr.id', '=', 'po.created_by')
             ->when($locationId, fn ($q) => $q->where('po.location_id', $locationId))->when($productId, fn ($q) => $q->where('p.id', $productId))

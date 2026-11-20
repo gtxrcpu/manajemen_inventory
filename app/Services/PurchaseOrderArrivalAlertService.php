@@ -37,7 +37,7 @@ class PurchaseOrderArrivalAlertService
     public function queueUpcoming(): int
     {
         $queued = 0;
-        PurchaseOrder::query()->where('status', 'issued')->orderBy('id')->chunkById(100, function ($orders) use (&$queued) {
+        PurchaseOrder::query()->whereIn('status', ['open', 'partially_received', 'issued'])->orderBy('id')->chunkById(100, function ($orders) use (&$queued) {
                 foreach ($orders as $order) $queued += $this->queue($order);
             });
 

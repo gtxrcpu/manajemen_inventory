@@ -31,7 +31,7 @@ class GlobalSearchController extends Controller
 
         $batches = StockInItem::query()->with(['product.unit', 'stockIn.location'])
             ->when($term !== '', fn ($query) => $query->where(fn ($nested) => $nested->where('batch_number', 'like', $like)
-                ->orWhereHas('product', fn ($product) => $product->where('name', 'like', $like)->orWhere('sku', 'like', $like))))
+                ->orWhereIn('product_id', $products->modelKeys())))
             ->whereHas('stockIn', fn ($receipt) => $receipt->when($isPic, fn ($q) => $q->whereIn('location_id', $locationIds))->when($locationId, fn ($q) => $q->where('location_id', $locationId)))
             ->latest()->limit(8)->get();
 

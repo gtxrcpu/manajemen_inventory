@@ -15,10 +15,36 @@ class StockOpnameService
 {
     public function __construct(private readonly AdminAuditLogger $auditLogger) {}
 
+    private function assertCanManage(?Location $location = null): void
+    {
+        $user = auth()->user();
+        abort_unless($user && ! $user->hasRole('purchasing') && $user->hasPermissionTo('opname.manage'), 403);
+        if ($location && $user->isLocationScopedUser()) {
+            abort_unless(in_array((int) $location->id, $user->assignedLocationIds(), true), 403);
+        }
+    }
+
+    private function assertCanApprove(Location $location): void
+    {
+        $user = auth()->user();
+        abort_unless($user && ! $user->hasRole('purchasing') && $user->hasPermissionTo('opname.approve'), 403);
+
+        $isGlobalApprover = $user->hasRole('super_admin') || $user->hasRole('management') || $user->hasRole('finance');
+        $isWarehousePic = $user->hasRole('pic_warehouse')
+            && $location->type === Location::TYPE_WAREHOUSE
+            && in_array((int) $location->id, $user->assignedWarehouseLocationIds(), true);
+        $isOutletPic = $user->hasRole('pic_outlet')
+            && $location->type === Location::TYPE_OUTLET
+            && in_array((int) $location->id, $user->assignedOutletLocationIds(), true);
+        abort_unless($isGlobalApprover || $isWarehousePic || $isOutletPic, 403);
+    }
+
     public function start(array $data): StockOpname
     {
+        $this->assertCanManage();
         return DB::transaction(function () use ($data) {
             $location = Location::whereKey($data['location_id'])->lockForUpdate()->firstOrFail();
+            $this->assertCanManage($location);
             if (StockOpname::where('location_id', $location->id)->whereIn('status', ['counting', 'pending_approval'])->exists()) {
                 throw ValidationException::withMessages(['location_id' => 'Masih ada Stock Opname yang belum selesai di lokasi ini. Selesaikan dulu sebelum membuat sesi baru.']);
             }
@@ -67,6 +93,7 @@ class StockOpnameService
 
     public function submit(StockOpname $opname, array $counts): StockOpname
     {
+        $this->assertCanManage($opname->location()->firstOrFail());
         return DB::transaction(function () use ($opname, $counts) {
             $opname = StockOpname::whereKey($opname->id)->lockForUpdate()->firstOrFail();
             if ($opname->status !== 'counting') throw ValidationException::withMessages(['opname' => 'Stock Opname ini sudah dikirim atau dikunci.']);
@@ -97,6 +124,7 @@ class StockOpnameService
 
     public function cancel(StockOpname $opname, string $reason): StockOpname
     {
+        $this->assertCanManage($opname->location()->firstOrFail());
         return DB::transaction(function () use ($opname, $reason) {
             $opname = StockOpname::whereKey($opname->id)->lockForUpdate()->firstOrFail();
             if ($opname->status !== 'counting') {
@@ -122,6 +150,7 @@ class StockOpnameService
 
     public function approve(StockOpname $opname, ?string $reviewNote = null): StockOpname
     {
+        $this->assertCanApprove($opname->location()->firstOrFail());
         return DB::transaction(function () use ($opname, $reviewNote) {
             $opname = StockOpname::whereKey($opname->id)->lockForUpdate()->firstOrFail();
             Location::whereKey($opname->location_id)->lockForUpdate()->firstOrFail();
@@ -159,6 +188,7 @@ class StockOpnameService
 
     public function reject(StockOpname $opname, string $reviewNote): StockOpname
     {
+        $this->assertCanApprove($opname->location()->firstOrFail());
         return DB::transaction(function () use ($opname, $reviewNote) {
             $opname = StockOpname::whereKey($opname->id)->lockForUpdate()->firstOrFail();
             if ($opname->status !== 'pending_approval') throw ValidationException::withMessages(['opname' => 'Hanya Stock Opname yang menunggu persetujuan yang bisa ditolak.']);

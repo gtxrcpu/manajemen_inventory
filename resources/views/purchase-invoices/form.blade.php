@@ -1,6 +1,7 @@
 @extends('layouts.dashboard')
 @php($pageTitle = ($invoice ? 'Ubah Draft Faktur' : 'Catat Faktur Pembelian').' — Technolife')
 @php($edit = (bool) $invoice)
+@php($selectedOrder = $selectedOrder ?? null)
 @php($defaultItems = old('items', $invoice?->items?->toArray() ?? (!empty($initialItems) ? $initialItems : [['product_id'=>'','quantity'=>'','unit_price'=>'']])))
 
 @section('mobile-content')
@@ -56,7 +57,7 @@
             <select name="purchase_order_id" class="mt-1.5 w-full rounded-xl border border-gray-200 p-3">
                 <option value="">Tidak ditautkan</option>
                 @foreach($orders as $order)
-                    <option value="{{ $order->id }}" data-supplier-id="{{ $order->supplier_id }}" data-has-confirmed-receipt="{{ $order->has_confirmed_receipt ? '1' : '0' }}" data-items='@json($order->invoice_prefill_items)' @selected(old('purchase_order_id', $invoice?->purchase_order_id ?? $selectedOrderId ?? '')==$order->id)>{{ $order->reference }} · {{ $order->supplier->name }}{{ $order->has_confirmed_receipt ? ' · Penerimaan dikonfirmasi' : '' }}</option>
+                    <option value="{{ $order->id }}" data-supplier-id="{{ $order->supplier_id }}" data-has-confirmed-receipt="{{ $order->has_confirmed_receipt ? '1' : '0' }}" data-items='@json($order->invoice_prefill_items)' data-tax="{{ $order->tax_amount }}" data-shipping="{{ $order->shipping_cost }}" data-other="{{ $order->other_cost }}" data-discount="{{ $order->items->sum('discount_amount') }}" @selected(old('purchase_order_id', $invoice?->purchase_order_id ?? $selectedOrderId ?? '')==$order->id)>{{ $order->reference }} · {{ $order->supplier->name }}{{ $order->has_confirmed_receipt ? ' · Penerimaan dikonfirmasi' : '' }}</option>
                 @endforeach
             </select>
             <span class="mt-1 block text-xs text-gray-500">Pilih PO untuk mengisi barang, jumlah yang sudah diterima dan dikonfirmasi, serta harga PO secara otomatis.</span>
@@ -85,10 +86,10 @@
             <h2 class="text-sm font-semibold">Komponen total faktur</h2>
             <p class="text-xs text-gray-600">Isi sesuai dokumen supplier. Pajak dan biaya belum otomatis dimasukkan ke biaya persediaan.</p>
             <div class="grid grid-cols-2 gap-3">
-                <label class="text-xs">Diskon (Rp)<input type="text" inputmode="decimal" name="discount_total" value="{{ old('discount_total', $invoice?->discount_total ?? 0) }}" data-money-input class="mt-1 w-full rounded-lg border p-2"></label>
-                <label class="text-xs">Pajak (Rp)<input type="text" inputmode="decimal" name="tax_total" value="{{ old('tax_total', $invoice?->tax_total ?? 0) }}" data-money-input class="mt-1 w-full rounded-lg border p-2"></label>
-                <label class="text-xs">Ongkir (Rp)<input type="text" inputmode="decimal" name="shipping_total" value="{{ old('shipping_total', $invoice?->shipping_total ?? 0) }}" data-money-input class="mt-1 w-full rounded-lg border p-2"></label>
-                <label class="text-xs">Biaya lain (Rp)<input type="text" inputmode="decimal" name="other_fee_total" value="{{ old('other_fee_total', $invoice?->other_fee_total ?? 0) }}" data-money-input class="mt-1 w-full rounded-lg border p-2"></label>
+                <label class="text-xs">Diskon (Rp)<input type="text" inputmode="decimal" name="discount_total" value="{{ old('discount_total', $invoice?->discount_total ?? $selectedOrder?->items?->sum('discount_amount') ?? 0) }}" data-money-input class="mt-1 w-full rounded-lg border p-2"></label>
+                <label class="text-xs">Pajak (Rp)<input type="text" inputmode="decimal" name="tax_total" value="{{ old('tax_total', $invoice?->tax_total ?? $selectedOrder?->tax_amount ?? 0) }}" data-money-input class="mt-1 w-full rounded-lg border p-2"></label>
+                <label class="text-xs">Ongkir (Rp)<input type="text" inputmode="decimal" name="shipping_total" value="{{ old('shipping_total', $invoice?->shipping_total ?? $selectedOrder?->shipping_cost ?? 0) }}" data-money-input class="mt-1 w-full rounded-lg border p-2"></label>
+                <label class="text-xs">Biaya lain (Rp)<input type="text" inputmode="decimal" name="other_fee_total" value="{{ old('other_fee_total', $invoice?->other_fee_total ?? $selectedOrder?->other_cost ?? 0) }}" data-money-input class="mt-1 w-full rounded-lg border p-2"></label>
             </div>
             <label class="block text-xs">Alasan selisih dengan total dokumen (wajib bila hitungan komponen berbeda lebih dari Rp0,01)
                 <textarea name="total_variance_note" rows="2" maxlength="2000" class="mt-1 w-full rounded-lg border p-2">{{ old('total_variance_note', $invoice?->total_variance_note) }}</textarea>
@@ -360,7 +361,7 @@
                     <select name="purchase_order_id" class="mt-1.5 w-full rounded-xl border border-gray-200 p-3 focus:border-[#DC143C] focus:outline-none focus:ring-1 focus:ring-[#DC143C] transition">
                         <option value="">Tidak ditautkan</option>
                         @foreach($orders as $order)
-                        <option value="{{ $order->id }}" data-supplier-id="{{ $order->supplier_id }}" data-has-confirmed-receipt="{{ $order->has_confirmed_receipt ? '1' : '0' }}" data-items='@json($order->invoice_prefill_items)' @selected(old('purchase_order_id', $invoice?->purchase_order_id ?? $selectedOrderId ?? '')==$order->id)>{{ $order->reference }} · {{ $order->supplier->name }}{{ $order->has_confirmed_receipt ? ' · Penerimaan dikonfirmasi' : '' }}</option>
+                        <option value="{{ $order->id }}" data-supplier-id="{{ $order->supplier_id }}" data-has-confirmed-receipt="{{ $order->has_confirmed_receipt ? '1' : '0' }}" data-items='@json($order->invoice_prefill_items)' data-tax="{{ $order->tax_amount }}" data-shipping="{{ $order->shipping_cost }}" data-other="{{ $order->other_cost }}" data-discount="{{ $order->items->sum('discount_amount') }}" @selected(old('purchase_order_id', $invoice?->purchase_order_id ?? $selectedOrderId ?? '')==$order->id)>{{ $order->reference }} · {{ $order->supplier->name }}{{ $order->has_confirmed_receipt ? ' · Penerimaan dikonfirmasi' : '' }}</option>
                         @endforeach
                     </select>
                     <span class="mt-1 block text-xs text-gray-500">Pilih PO untuk mengisi barang, jumlah yang sudah diterima dan dikonfirmasi, serta harga PO secara otomatis.</span>
@@ -384,10 +385,10 @@
                     <h3 class="text-sm font-semibold">Komponen total faktur</h3>
                     <p class="text-xs text-gray-600">Isi diskon, pajak, ongkir, dan biaya lain sesuai dokumen. Biaya ini belum otomatis masuk biaya persediaan.</p>
                     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                        <label class="text-xs">Diskon (Rp)<input type="text" inputmode="decimal" name="discount_total" value="{{ old('discount_total', $invoice?->discount_total ?? 0) }}" data-money-input class="mt-1 w-full rounded-lg border p-2.5"></label>
-                        <label class="text-xs">Pajak (Rp)<input type="text" inputmode="decimal" name="tax_total" value="{{ old('tax_total', $invoice?->tax_total ?? 0) }}" data-money-input class="mt-1 w-full rounded-lg border p-2.5"></label>
-                        <label class="text-xs">Ongkir (Rp)<input type="text" inputmode="decimal" name="shipping_total" value="{{ old('shipping_total', $invoice?->shipping_total ?? 0) }}" data-money-input class="mt-1 w-full rounded-lg border p-2.5"></label>
-                        <label class="text-xs">Biaya lain (Rp)<input type="text" inputmode="decimal" name="other_fee_total" value="{{ old('other_fee_total', $invoice?->other_fee_total ?? 0) }}" data-money-input class="mt-1 w-full rounded-lg border p-2.5"></label>
+                        <label class="text-xs">Diskon (Rp)<input type="text" inputmode="decimal" name="discount_total" value="{{ old('discount_total', $invoice?->discount_total ?? $selectedOrder?->items?->sum('discount_amount') ?? 0) }}" data-money-input class="mt-1 w-full rounded-lg border p-2.5"></label>
+                        <label class="text-xs">Pajak (Rp)<input type="text" inputmode="decimal" name="tax_total" value="{{ old('tax_total', $invoice?->tax_total ?? $selectedOrder?->tax_amount ?? 0) }}" data-money-input class="mt-1 w-full rounded-lg border p-2.5"></label>
+                        <label class="text-xs">Ongkir (Rp)<input type="text" inputmode="decimal" name="shipping_total" value="{{ old('shipping_total', $invoice?->shipping_total ?? $selectedOrder?->shipping_cost ?? 0) }}" data-money-input class="mt-1 w-full rounded-lg border p-2.5"></label>
+                        <label class="text-xs">Biaya lain (Rp)<input type="text" inputmode="decimal" name="other_fee_total" value="{{ old('other_fee_total', $invoice?->other_fee_total ?? $selectedOrder?->other_cost ?? 0) }}" data-money-input class="mt-1 w-full rounded-lg border p-2.5"></label>
                     </div>
                     <label class="block text-xs">Alasan selisih dengan total dokumen (wajib bila hitungan komponen berbeda lebih dari Rp0,01)
                         <textarea name="total_variance_note" rows="2" maxlength="2000" class="mt-1 w-full rounded-lg border p-2.5">{{ old('total_variance_note', $invoice?->total_variance_note) }}</textarea>
@@ -711,10 +712,17 @@
                     }
                 }
                 if (event.target.matches('[name="purchase_order_id"]')) {
-                    const supplierId = event.target.selectedOptions[0]?.dataset.supplierId;
+                    const selectedOption = event.target.selectedOptions[0];
+                    const supplierId = selectedOption?.dataset.supplierId;
                     const supplier = form.querySelector('[name="supplier_id"]');
                     if (supplierId && supplier) supplier.value = supplierId;
-                    if (event.target.value) fillItemsFromOrder(form, event.target.selectedOptions[0]);
+                    if (event.target.value) {
+                        fillItemsFromOrder(form, selectedOption);
+                        [['discount_total','discount'],['tax_total','tax'],['shipping_total','shipping'],['other_fee_total','other']].forEach(([name,key]) => {
+                            const input = form.querySelector(`[name="${name}"]`);
+                            if (input) { input.value = selectedOption.dataset[key] || '0'; input.dispatchEvent(new Event('input', { bubbles: true })); }
+                        });
+                    }
                 }
                 if (event.target.matches('[name="supplier_id"], [name="purchase_order_id"], [name="invoice_date"]')) syncSummary(form);
             });

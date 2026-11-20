@@ -14,6 +14,7 @@ class StockAdjustmentService
 
     public function apply(array $data): StockAdjustment
     {
+        abort_unless(auth()->user()?->hasPermissionTo('adjust.manage') && ! auth()->user()?->hasRole('purchasing'), 403);
         return DB::transaction(function () use ($data) {
             Location::whereKey($data['location_id'])->lockForUpdate()->firstOrFail();
             StockOpnameMovementGuard::assertProductCanMove((int) $data['location_id'], (int) $data['product_id']);

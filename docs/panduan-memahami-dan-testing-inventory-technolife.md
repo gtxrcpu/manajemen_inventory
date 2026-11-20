@@ -54,13 +54,14 @@ Sebelum simulasi, siapkan produk aktif, satuan, kategori, supplier, satu gudang,
 
 ### 4.2 Pembelian dan penerimaan barang supplier
 
-1. Purchasing membuat **Purchase Request (PR)** untuk mencatat kebutuhan.
-2. Purchasing membuat **Purchase Order (PO)** kepada supplier dari permintaan atau alur yang tersedia.
-3. Staff Gudang membuka daftar PO/penerimaan, memeriksa supplier, item, satuan, dan gudang tujuan terhadap barang fisik.
-4. Catat kuantitas datang dan kuantitas layak diterima secara benar. Catat selisih/kerusakan dan batch/kedaluwarsa bila relevan.
-5. Simpan penerimaan. Untuk penerimaan gudang yang langsung disetujui, jumlah diterima membuat Stock In movement. Penerimaan outlet dapat menunggu persetujuan PIC sesuai konfigurasi/alurnya.
-6. **Jangan buat Stock In kedua untuk barang yang sudah dicatat lewat “Validasi Penerimaan” PO.** Halaman PO adalah jalur penerimaan tersebut.
-7. Receipt boleh ada sebelum invoice. Purchasing/Finance kemudian menautkan dokumen invoice. Status dokumen invoice dan saldo stok adalah konsep terpisah.
+1. Purchasing membuat **Purchase Request (PR)** untuk mencatat kebutuhan. PR berstatus **Menunggu Persetujuan** dan belum dapat dibuat menjadi PO.
+2. Management meninjau item, jumlah, dan alasan kebutuhan di menu **Persetujuan**. Management dapat menyetujui atau menolak PR; keputusan dan catatan tersimpan di riwayat.
+3. Jika disetujui, Purchasing membuka PR tersebut dan membuat **Purchase Order (PO)** kepada supplier. PR yang ditolak tidak dapat diterbitkan menjadi PO.
+4. Staff Gudang membuka daftar PO/penerimaan, memeriksa supplier, item, satuan, dan gudang tujuan terhadap barang fisik.
+5. Catat kuantitas datang dan kuantitas layak diterima secara benar. Catat selisih/kerusakan dan batch/kedaluwarsa bila relevan.
+6. Simpan penerimaan. Untuk penerimaan gudang yang langsung disetujui, jumlah diterima membuat Stock In movement. Penerimaan outlet dapat menunggu persetujuan PIC sesuai konfigurasi/alurnya.
+7. **Jangan buat Stock In kedua untuk barang yang sudah dicatat lewat “Validasi Penerimaan” PO.** Halaman PO adalah jalur penerimaan tersebut.
+8. Receipt boleh ada sebelum invoice. Purchasing/Finance kemudian menautkan dokumen invoice. Status dokumen invoice dan saldo stok adalah konsep terpisah.
 
 Barang datang yang rusak/ditolak tidak boleh masuk ke kuantitas layak yang menambah saldo. Jangan mengisi nilai batch/expiry yang tidak diketahui seolah-olah benar.
 

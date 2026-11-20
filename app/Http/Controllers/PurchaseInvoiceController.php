@@ -62,6 +62,7 @@ class PurchaseInvoiceController extends Controller
             ...$options,
             'selectedOrderId' => $selectedOrder?->id,
             'selectedSupplierId' => $selectedOrder?->supplier_id,
+            'selectedOrder' => $selectedOrder,
             'initialItems' => $selectedOrder?->invoice_prefill_items ?? [],
         ]);
     }
@@ -244,7 +245,7 @@ class PurchaseInvoiceController extends Controller
             'supplier',
             'items.product.unit',
             'stockIn' => fn ($query) => $query->where('status', 'approved')->with('items'),
-        ])->whereIn('status', ['issued', 'received', 'closed_with_variance'])->latest()->get();
+        ])->whereIn('status', ['open', 'partially_received', 'issued', 'completed', 'received', 'closed_with_variance'])->latest()->get();
 
         $orders->each(function (PurchaseOrder $order): void {
             $receivedByOrderItem = $order->stockIn
@@ -257,7 +258,7 @@ class PurchaseInvoiceController extends Controller
                 ->filter(fn ($item) => ! $hasConfirmedReceipt || (float) ($receivedByOrderItem->get($item->id) ?? 0) > 0)
                 ->map(fn ($item) => [
                     'product_id' => $item->product_id,
-                    'quantity' => $hasConfirmedReceipt ? (float) $receivedByOrderItem->get($item->id) : (float) $item->quantity,
+                    'quantity' => $hasConfirmedReceipt ? (float) $receivedByOrderItem->get($item->id) : (float) ($item->qty_ordered ?: $item->quantity),
                     'unit_price' => (float) $item->unit_price,
                 ])
                 ->values()

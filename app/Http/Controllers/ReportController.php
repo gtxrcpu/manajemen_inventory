@@ -48,6 +48,9 @@ class ReportController extends Controller
     private function authorizeType(Request $request, string $type): void
     {
         abort_unless($request->user()->hasPermissionTo('reports.view'), 403);
+        if ($request->user()->hasRole('purchasing')) {
+            abort_unless(in_array($type, ['stock', 'opname'], true), 403);
+        }
         if ($type === 'purchasing') {
             abort_unless($request->user()->hasRole('super_admin') || $request->user()->hasRole('management')
                 || $request->user()->hasRole('finance') || $request->user()->hasRole('purchasing'), 403);
@@ -75,6 +78,7 @@ class ReportController extends Controller
             'filters' => $filters,
             'picLocation' => $picLocation,
             'reportTypes' => collect(InventoryReportService::TYPES)
+                ->reject(fn ($key) => $request->user()->hasRole('purchasing') && ! in_array($key, ['stock', 'opname'], true))
                 ->reject(fn ($key) => $key === 'purchasing' && ! ($request->user()->hasRole('super_admin') || $request->user()->hasRole('management') || $request->user()->hasRole('finance') || $request->user()->hasRole('purchasing')))
                 ->mapWithKeys(fn ($key) => [$key => $reports->definition($key)['label']]),
             'locations' => $request->user()->isLocationScopedUser()
@@ -145,7 +149,7 @@ class ReportController extends Controller
     {
         return match ($type) {
             'movements' => ['stock_in' => 'Stock In', 'stock_out' => 'Stock Out', 'opname' => 'Stock Opname', 'adjustment' => 'Adjustment', 'disposal' => 'Write-off / retur'],
-            'purchasing' => ['issued' => 'Menunggu barang', 'received' => 'Diterima', 'closed_with_variance' => 'Ditutup dengan selisih'],
+            'purchasing' => ['draft' => 'Draft', 'open' => 'Open', 'partially_received' => 'Penerimaan sebagian', 'completed' => 'Selesai diterima', 'issued' => 'Menunggu barang (data lama)', 'received' => 'Diterima (data lama)', 'closed_with_variance' => 'Ditutup dengan selisih', 'cancelled' => 'Dibatalkan'],
             default => [],
         };
     }

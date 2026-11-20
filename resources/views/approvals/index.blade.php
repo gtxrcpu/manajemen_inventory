@@ -6,7 +6,7 @@
         'approved' => ['label' => 'Disetujui', 'class' => 'border-emerald-200 bg-emerald-50 text-emerald-800', 'icon' => 'task_alt'],
         'rejected' => ['label' => 'Ditolak', 'class' => 'border-rose-200 bg-rose-50 text-rose-800', 'icon' => 'cancel'],
     ];
-    $pendingCount = (int) $stats['stock_in_pending'] + (int) $stats['transfer_pending'] + (int) $stats['opname_pending'];
+    $pendingCount = (int) $stats['stock_in_pending'] + (int) $stats['transfer_pending'] + (int) $stats['opname_pending'] + (int) $stats['purchase_request_pending'];
     $resolvedCount = $resolvedDecisions->count();
 @endphp
 
@@ -17,7 +17,7 @@
             <div>
                 <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-[#DC143C]"><span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>Kontrol operasional</span>
                 <h1 class="mt-2 font-poppins text-xl font-semibold text-slate-900">Persetujuan</h1>
-                <p class="mt-1 text-xs leading-relaxed text-slate-500">Tinjau Stock In, distribusi gudang, dan hasil hitung stok.</p>
+                <p class="mt-1 text-xs leading-relaxed text-slate-500">Tinjau PR, Stock In, distribusi gudang, dan hasil hitung stok.</p>
             </div>
             <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FFF1F0] text-[#DC143C]"><span class="material-symbols-outlined">fact_check</span></span>
         </div>
@@ -40,6 +40,17 @@
         </a>
     </section>
 
+    <div id="antrian-persetujuan" class="scroll-mt-4" aria-hidden="true"></div>
+
+    @if($canReviewPurchaseRequests)
+    <section class="space-y-3" aria-label="Antrian Purchase Request">
+        <div class="flex items-end justify-between gap-3"><div><p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Management</p><h2 class="mt-0.5 text-sm font-semibold text-slate-900">Persetujuan Purchase Request</h2><p class="mt-1 text-[10px] leading-relaxed text-slate-500">Darurat ditinjau lebih dulu; berikutnya PR terlama. Semua tetap menunggu keputusan Management.</p></div><span class="rounded-full {{ $pendingPurchaseRequests->isNotEmpty() ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-600' }} px-2.5 py-1 text-[10px] font-semibold">{{ $pendingPurchaseRequests->count() }} menunggu</span></div>
+        @forelse($pendingPurchaseRequests as $purchaseRequest)
+            <a href="{{ route('purchasing.requests.show', $purchaseRequest) }}" class="group block rounded-2xl border border-slate-200 border-l-4 border-l-violet-400 bg-white p-4 shadow-2xs transition hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-sm"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class="truncate text-sm font-semibold text-slate-900">{{ $purchaseRequest->reference }}</p><p class="mt-1 text-[11px] text-slate-500">Diajukan {{ $purchaseRequest->requester?->name ?? 'Pengguna' }} · {{ $purchaseRequest->created_at->copy()->timezone('Asia/Jakarta')->format('d M Y') }}</p></div><span class="shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold {{ ($purchaseRequest->priority ?? 'normal') === 'emergency' ? 'border-rose-200 bg-rose-50 text-rose-800' : (($purchaseRequest->priority ?? 'normal') === 'urgent' ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-slate-200 bg-slate-100 text-slate-700') }}">{{ ($purchaseRequest->priority ?? 'normal') === 'emergency' ? 'Darurat' : ucfirst($purchaseRequest->priority ?? 'normal') }}</span></div><div class="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 text-[11px] text-slate-500"><span>{{ $purchaseRequest->location?->name ?? 'Lokasi belum tercatat' }} · {{ $purchaseRequest->items->count() }} produk · dibutuhkan {{ $purchaseRequest->required_date?->format('d M Y') ?? 'belum ditentukan' }}</span><span class="font-semibold text-slate-800">{{ $purchaseRequest->estimated_total !== null ? 'Rp'.number_format((float)$purchaseRequest->estimated_total, 0, ',', '.') : 'Estimasi belum tersedia' }}</span></div></a>
+        @empty <div class="rounded-xl border border-dashed border-slate-300 bg-white p-5 text-center text-xs text-slate-500">Tidak ada PR yang menunggu persetujuan Management.</div> @endforelse
+    </section>
+    @endif
+
     @if($canReviewStockIns)
     <section class="space-y-3" aria-label="Antrian Stock In">
         <div class="flex items-end justify-between gap-3"><div><p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">PIC Outlet</p><h2 class="mt-0.5 text-sm font-semibold text-slate-900">Persetujuan Stock In</h2></div><span class="rounded-full {{ $pendingStockIns->isNotEmpty() ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-600' }} px-2.5 py-1 text-[10px] font-semibold">{{ $pendingStockIns->count() }} menunggu</span></div>
@@ -59,10 +70,10 @@
     @endif
 
     @if($canReviewOpnames)
-    <section id="antrian-persetujuan" class="scroll-mt-4 space-y-3" aria-label="Antrian Stock Opname">
+    <section class="space-y-3" aria-label="Antrian Stock Opname">
         <div class="flex items-end justify-between gap-3">
             <div><p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Antrian kerja</p><h2 class="mt-0.5 text-sm font-semibold text-slate-900">Stock Opname</h2></div>
-            <span class="rounded-full {{ $pendingCount > 0 ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-600' }} px-2.5 py-1 text-[10px] font-semibold">{{ $pendingCount }} menunggu</span>
+            <span class="rounded-full {{ $pendingOpnames->isNotEmpty() ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-600' }} px-2.5 py-1 text-[10px] font-semibold">{{ $pendingOpnames->count() }} menunggu</span>
         </div>
 
         @forelse($pendingOpnames as $opname)
@@ -111,7 +122,7 @@
         <div>
             <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#DC143C]"><span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>Kontrol operasional</span>
             <h1 class="mt-2 font-poppins text-2xl font-semibold text-slate-900">Persetujuan</h1>
-            <p class="mt-1 text-sm text-slate-500">Tinjau Stock In, distribusi gudang, dan hasil opname sesuai kewenangan akun.</p>
+            <p class="mt-1 text-sm text-slate-500">Tinjau PR, Stock In, distribusi gudang, dan hasil opname sesuai kewenangan akun.</p>
         </div>
         <div class="flex items-center gap-3 rounded-2xl {{ $pendingCount > 0 ? 'bg-amber-50 text-amber-900' : 'bg-emerald-50 text-emerald-900' }} px-4 py-3">
             <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-white/80"><span class="material-symbols-outlined">{{ $pendingCount > 0 ? 'pending_actions' : 'task_alt' }}</span></span>
@@ -121,6 +132,21 @@
 
     @if(session('status'))
         <div class="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800"><span class="material-symbols-outlined text-emerald-700">check_circle</span>{{ session('status') }}</div>
+    @endif
+
+    @if($canReviewPurchaseRequests)
+    <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm" aria-label="Antrian Purchase Request Management">
+        <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4"><div class="flex items-center gap-3"><span class="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-700"><span class="material-symbols-outlined">request_quote</span></span><div><h2 class="text-sm font-semibold text-slate-900">Persetujuan Purchase Request</h2><p class="mt-0.5 text-[11px] text-slate-500">Darurat ditinjau lebih dulu, lalu PR terlama. Semua PR harus disetujui sebelum Purchasing dapat menerbitkan PO.</p></div></div><span class="rounded-full {{ $pendingPurchaseRequests->isNotEmpty() ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-600' }} px-3 py-1.5 text-xs font-semibold">{{ $pendingPurchaseRequests->count() }} menunggu</span></div>
+        @if($pendingPurchaseRequests->isNotEmpty())
+            <div class="divide-y divide-slate-100">
+                @foreach($pendingPurchaseRequests as $purchaseRequest)
+                    <a href="{{ route('purchasing.requests.show', $purchaseRequest) }}" class="group flex flex-wrap items-center justify-between gap-4 border-l-2 border-l-violet-400 px-5 py-4 transition hover:bg-violet-50/40"><span class="min-w-0"><span class="block truncate text-sm font-semibold text-slate-900">{{ $purchaseRequest->reference }}</span><span class="mt-1 block truncate text-xs text-slate-500">{{ $purchaseRequest->location?->name ?? 'Lokasi belum tercatat' }} · Diajukan {{ $purchaseRequest->requester?->name ?? 'Pengguna' }} · {{ $purchaseRequest->items->count() }} produk</span><span class="mt-1 block text-xs font-semibold text-slate-700">Estimasi {{ $purchaseRequest->estimated_total !== null ? 'Rp'.number_format((float)$purchaseRequest->estimated_total, 0, ',', '.') : 'belum tersedia' }} · {{ ($purchaseRequest->priority ?? 'normal') === 'emergency' ? 'Darurat' : ucfirst($purchaseRequest->priority ?? 'normal') }}</span></span><span class="inline-flex items-center gap-1 rounded-lg bg-[#DC143C] px-3 py-2 text-xs font-semibold text-white">Tinjau<span class="material-symbols-outlined text-[15px]">arrow_forward</span></span></a>
+                @endforeach
+            </div>
+        @else
+            <div class="px-6 py-10 text-center text-xs text-slate-500">Tidak ada PR yang menunggu persetujuan Management.</div>
+        @endif
+    </section>
     @endif
 
     @if($canReviewStockIns || $canReviewTransfers)
@@ -150,10 +176,10 @@
 
     @if($canReviewOpnames)
     <div class="grid gap-6">
-        <section id="antrian-persetujuan" class="scroll-mt-5 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm" aria-label="Antrian Stock Opname">
+        <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm" aria-label="Antrian Stock Opname">
             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
                 <div class="flex items-center gap-3"><span class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-700"><span class="material-symbols-outlined">inventory_2</span></span><div><h2 class="text-sm font-semibold text-slate-900">Stock Opname</h2><p class="mt-0.5 text-[11px] text-slate-500">Hasil hitung menunggu tinjauan Purchasing</p></div></div>
-                <span class="rounded-full {{ $pendingCount > 0 ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-600' }} px-3 py-1.5 text-xs font-semibold">{{ $pendingCount }} menunggu</span>
+                <span class="rounded-full {{ $pendingOpnames->isNotEmpty() ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-600' }} px-3 py-1.5 text-xs font-semibold">{{ $pendingOpnames->count() }} menunggu</span>
             </div>
             @if($pendingOpnames->isNotEmpty())
                 <div class="divide-y divide-slate-100">
@@ -176,7 +202,7 @@
     </div>
     @endif
     <section id="riwayat-keputusan" class="scroll-mt-5 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm" aria-label="Riwayat keputusan">
-        <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4"><div class="flex items-center gap-3"><span class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600"><span class="material-symbols-outlined">history</span></span><div><h2 class="text-sm font-semibold text-slate-900">Riwayat keputusan</h2><p class="mt-0.5 text-[11px] text-slate-500">Stock In, distribusi, dan Stock Opname</p></div></div><span class="text-xs text-slate-500">{{ $resolvedCount }} catatan</span></div>
+        <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4"><div class="flex items-center gap-3"><span class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600"><span class="material-symbols-outlined">history</span></span><div><h2 class="text-sm font-semibold text-slate-900">Riwayat keputusan</h2><p class="mt-0.5 text-[11px] text-slate-500">PR, Stock In, distribusi, dan Stock Opname</p></div></div><span class="text-xs text-slate-500">{{ $resolvedCount }} catatan</span></div>
         <div class="divide-y divide-slate-100">
             @forelse($resolvedDecisions as $entry)
                 @php($decision = $decisionStatuses[$entry['status']] ?? ['label' => $entry['status'], 'class' => 'border-slate-200 bg-slate-50 text-slate-700', 'icon' => 'help'])
